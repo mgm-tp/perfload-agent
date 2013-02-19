@@ -1,0 +1,16 @@
+{
+	'entryPoints': {
+		'servlets': ['com.mgmtp.perfload.agent.TestServlet'],
+		'filters': ['com.mgmtp.perfload.agent.TestFilter']
+	},
+	'instrumentations': {
+		'com.mgmtp.perfload.agent.Test': {
+			'check': [],
+			'checkI': [],
+			'checkLL': [['long', 'long']]
+		},
+		'com.mgmtp.perfload.agent.TestServlet': {
+			'service': []
+		}
+	}
+}
