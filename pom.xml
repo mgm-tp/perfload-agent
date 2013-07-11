@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
+<!--
 	Copyright (c) 2013 mgm technology partners GmbH
 
 	Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@
 	<version>1.2.1-SNAPSHOT</version>
 	<name>mgm perfLoad Agent</name>
 	<description>mgm perfLoad Agent</description>
-	
+
 	<url>https://github.com/mgm-tp/perfload-agent</url>
 
 	<issueManagement>
@@ -182,4 +182,33 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>dist</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-assembly-plugin</artifactId>
+						<version>2.4</version>
+						<executions>
+							<execution>
+								<id>assembly-agent-dist</id>
+								<phase>package</phase>
+								<goals>
+									<goal>single</goal>
+								</goals>
+								<configuration>
+									<descriptors>
+										<descriptor>${basedir}/src/main/assembly/dist.xml</descriptor>
+									</descriptors>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>
