@@ -19,7 +19,7 @@
 	<parent>
 		<groupId>com.mgmtp.maven.poms</groupId>
 		<artifactId>mgm-oss-parent</artifactId>
-		<version>3</version>
+		<version>5</version>
 	</parent>
 	<groupId>com.mgmtp.perfload</groupId>
 	<artifactId>perfload-agent</artifactId>
@@ -38,8 +38,8 @@
 		<connection>scm:git:git://github.com/mgm-tp/perfload-agent.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/mgm-tp/perfload-agent.git</developerConnection>
 		<url>https://github.com/mgm-tp/perfload-agent</url>
-	  <tag>HEAD</tag>
-  </scm>
+		<tag>HEAD</tag>
+	</scm>
 
 	<licenses>
 		<license>
@@ -62,6 +62,14 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>1.6</source>
+					<target>1.6</target>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
