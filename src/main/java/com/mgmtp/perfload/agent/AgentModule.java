@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
-import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.Deque;
 import java.util.List;
@@ -36,8 +35,6 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
 import net.sf.json.JsonConfig;
-
-import org.apache.commons.io.FileUtils;
 
 import com.google.common.base.Charsets;
 import com.google.common.cache.CacheBuilder;
@@ -72,6 +69,14 @@ import com.mgmtp.perfload.logging.SimpleLogger;
  */
 public class AgentModule extends AbstractModule {
 
+	private final File agentDir;
+	private final AgentLogger agentLogger;
+
+	public AgentModule(final File agentDir, final AgentLogger agentLogger) {
+		this.agentDir = agentDir;
+		this.agentLogger = agentLogger;
+	}
+
 	@Override
 	protected void configure() {
 		binder().requireExplicitBindings();
@@ -82,6 +87,8 @@ public class AgentModule extends AbstractModule {
 		bind(Transformer.class);
 		bind(ExecutionParams.class);
 		bind(Agent.class);
+		bind(File.class).annotatedWith(AgentDir.class).toInstance(agentDir);
+		bind(AgentLogger.class).toInstance(agentLogger);
 	}
 
 	@Provides
@@ -92,21 +99,7 @@ public class AgentModule extends AbstractModule {
 
 	@Provides
 	@Singleton
-	AgentLogger provideAgentLogger(@AgentDir final File agentDir) {
-		File agentLog = new File(agentDir, "perfload-agent.log");
-		final AgentLogger logger = new AgentLogger(agentLog);
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				logger.close();
-			}
-		});
-		return logger;
-	}
-
-	@Provides
-	@Singleton
-	SimpleLogger provideMeasuringLogger(@AgentDir final File agentDir) {
+	SimpleLogger provideMeasuringLogger() {
 		File measuringLog = new File(agentDir, "perfload-agent-measuring.log");
 		final SimpleFileLogger logger = new SimpleFileLogger(measuringLog);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -119,18 +112,9 @@ public class AgentModule extends AbstractModule {
 	}
 
 	@Provides
-	@AgentDir
-	@Singleton
-	File provideAgentDir() {
-		URL location = getClass().getProtectionDomain().getCodeSource().getLocation();
-		File jarFile = FileUtils.toFile(location);
-		return jarFile.getParentFile();
-	}
-
-	@Provides
 	@ConfigFile
 	@Singleton
-	File provideConfigFile(@AgentDir final File agentDir) {
+	File provideConfigFile() {
 		File configFile = new File(agentDir, "perfload-agent.json");
 		if (!configFile.canRead()) {
 			throw new IllegalStateException("Cannot read agent config file: " + configFile.getAbsolutePath());

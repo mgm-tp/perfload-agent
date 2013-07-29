@@ -48,12 +48,8 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.AbstractModule;
-import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.util.Modules;
-import com.mgmtp.perfload.agent.AgentModule;
-import com.mgmtp.perfload.agent.Transformer;
-import com.mgmtp.perfload.agent.annotations.AgentDir;
 import com.mgmtp.perfload.agent.annotations.ConfigFile;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 
@@ -77,13 +73,18 @@ public class TransformerTest {
 
 	@BeforeClass
 	public void init() throws MalformedURLException, IOException, IllegalClassFormatException, ClassNotFoundException {
-		Injector injector = Guice.createInjector(Modules.override(new AgentModule()).with(new AbstractModule() {
-			@Override
-			protected void configure() {
-				bind(File.class).annotatedWith(ConfigFile.class).toInstance(new File("src/test/resources/perfload-agent.json"));
-				bind(File.class).annotatedWith(AgentDir.class).toInstance(new File("."));
-			}
-		}));
+		final File agentDir = new File("target");
+		File agentLog = new File(agentDir, "perfload-agent.log");
+		AgentLogger logger = new AgentLogger(agentLog);
+
+		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, logger)).with(
+				new AbstractModule() {
+					@Override
+					protected void configure() {
+						bind(File.class).annotatedWith(ConfigFile.class).toInstance(
+								new File("src/test/resources/perfload-agent.json"));
+					}
+				}));
 		injector.injectMembers(this);
 
 		testClass = loadClass("com.mgmtp.perfload.agent.Test");

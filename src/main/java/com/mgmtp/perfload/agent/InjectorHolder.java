@@ -17,6 +17,7 @@ package com.mgmtp.perfload.agent;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Module;
 
 /**
  * Enum singleton that holds the Guice injector.
@@ -26,7 +27,12 @@ import com.google.inject.Injector;
 public enum InjectorHolder {
 	INSTANCE;
 
-	private final Injector injector = Guice.createInjector(new AgentModule());
+	private volatile Injector injector;
+
+	public Injector createInjector(final Module module) {
+		injector = Guice.createInjector(module);
+		return injector;
+	}
 
 	/**
 	 * @return the injector
