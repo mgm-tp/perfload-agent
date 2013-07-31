@@ -71,10 +71,12 @@ public class AgentModule extends AbstractModule {
 
 	private final File agentDir;
 	private final AgentLogger agentLogger;
+	private final int pid;
 
-	public AgentModule(final File agentDir, final AgentLogger agentLogger) {
+	public AgentModule(final File agentDir, final AgentLogger agentLogger, final int pid) {
 		this.agentDir = agentDir;
 		this.agentLogger = agentLogger;
+		this.pid = pid;
 	}
 
 	@Override
@@ -100,7 +102,7 @@ public class AgentModule extends AbstractModule {
 	@Provides
 	@Singleton
 	SimpleLogger provideMeasuringLogger() {
-		File measuringLog = new File(agentDir, "perfload-agent-measuring.log");
+		File measuringLog = new File(agentDir, String.format("perfload-agent-measuring-%d.log", pid));
 		final SimpleFileLogger logger = new SimpleFileLogger(measuringLog);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override

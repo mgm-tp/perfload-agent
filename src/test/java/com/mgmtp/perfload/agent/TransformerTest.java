@@ -58,7 +58,8 @@ import com.mgmtp.perfload.agent.hook.ServletApiHook;
  */
 public class TransformerTest {
 
-	private static final File MEASURING_LOG_FILE = new File("target", "perfload-agent-measuring.log");
+	private static final File MEASURING_LOG_FILE = new File("target", String.format("perfload-agent-measuring-%d.log",
+			Agent.retrievePid()));
 
 	@Inject
 	private Transformer transformer;
@@ -74,10 +75,11 @@ public class TransformerTest {
 	@BeforeClass
 	public void init() throws MalformedURLException, IOException, IllegalClassFormatException, ClassNotFoundException {
 		final File agentDir = new File("target");
-		File agentLog = new File(agentDir, "perfload-agent.log");
+		int pid = Agent.retrievePid();
+		File agentLog = new File(agentDir, String.format("perfload-agent-%d.log", pid));
 		AgentLogger logger = new AgentLogger(agentLog);
 
-		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, logger)).with(
+		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, logger, pid)).with(
 				new AbstractModule() {
 					@Override
 					protected void configure() {

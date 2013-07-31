@@ -17,7 +17,10 @@ package com.mgmtp.perfload.agent;
 
 import java.io.File;
 import java.lang.instrument.Instrumentation;
+import java.lang.management.ManagementFactory;
 import java.net.URL;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.inject.Inject;
 
@@ -56,12 +59,13 @@ public class Agent {
 		AgentLogger logger = null;
 		try {
 			File agentDir = getAgentDir();
-			File agentLog = new File(agentDir, "perfload-agent.log");
+			int pid = retrievePid();
+			File agentLog = new File(agentDir, String.format("perfload-agent-%d.log", pid));
 			logger = new AgentLogger(agentLog);
 
 			logger.writeln("Initializing perfLoad Agent...");
 
-			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, logger));
+			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, logger, pid));
 			injector.getInstance(Agent.class).addTransformer(instrumentation);
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -76,5 +80,19 @@ public class Agent {
 		URL location = Agent.class.getProtectionDomain().getCodeSource().getLocation();
 		File jarFile = FileUtils.toFile(location);
 		return jarFile.getParentFile();
+	}
+
+	static int retrievePid() {
+		try {
+			// There is no SecurityManager involved retrieving this bean,
+			// but just to be safe, we catch exceptions.
+			String jvmName = ManagementFactory.getRuntimeMXBean().getName();
+			Matcher matcher = Pattern.compile("\\d*").matcher(jvmName);
+			return matcher.find() ? Integer.parseInt(matcher.group()) : -1;
+		} catch (Exception ex) {
+			System.err.println("Error retrieving process id.");
+			ex.printStackTrace();
+			return -1;
+		}
 	}
 }
