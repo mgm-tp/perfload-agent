@@ -34,7 +34,7 @@
 	</fileSets>
 	<files>
 		<file>
-			<source>${basedir}/src/main/assembly/perfload-agent.json</source>
+			<source>${basedir}/src/main/assembly/perfload-agent.default.json</source>
 		</file>
 	</files>
 	<dependencySets>
