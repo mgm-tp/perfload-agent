@@ -26,7 +26,7 @@ From: 'Json-lib' (http://json-lib.sourceforge.net)
 
 
 From: 'ObjectWeb' (http://www.objectweb.org/)
-  - ASM All (http://asm.objectweb.org/asm-all/) asm:asm-all:jar:4.0
+  - ASM All (http://asm.objectweb.org/asm-all/) org.ow2.asm:asm-all:jar:4.0
     License: BSD  (http://asm.objectweb.org/license.html)
 
 From: 'The Apache Software Foundation' (http://www.apache.org/)
