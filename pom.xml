@@ -93,7 +93,6 @@
 						</goals>
 						<configuration>
 							<shadedArtifactAttached>false</shadedArtifactAttached>
-							<createDependencyReducedPom>true</createDependencyReducedPom>
 							<relocations>
 								<relocation>
 									<pattern>org.objectweb</pattern>
