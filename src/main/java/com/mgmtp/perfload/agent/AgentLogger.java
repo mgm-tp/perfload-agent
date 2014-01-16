@@ -71,6 +71,11 @@ public class AgentLogger implements SimpleLogger {
 			} catch (IOException ex) {
 				throw new RuntimeException(ex);
 			}
+		} else if (!agentLogFile.exists()) {
+			// in case file was removed by Supervisor
+			close();
+			writer = null;
+			ensureOpen();
 		}
 	}
 
