@@ -15,14 +15,27 @@
  */
 package com.mgmtp.perfload.agent.hook;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.collect.FluentIterable;
+import com.mgmtp.perfload.agent.util.ClassNameUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.text.StrBuilder;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.AdviceAdapter;
 
+import java.util.List;
+
+import static com.google.common.collect.FluentIterable.*;
+import static com.mgmtp.perfload.agent.util.ClassNameUtils.computeFullyQualifiedMethodName;
+import static org.apache.commons.lang.StringUtils.substringAfterLast;
+import static org.apache.commons.lang.StringUtils.substringBeforeLast;
+
 /**
  * An ASM {@link MethodVisitor} that weave the {@link HookManager} into a method's byte code.
- * 
+ *
  * @author rnaegele
  */
 public class MeasuringHookMethodVisitor extends AdviceAdapter {
@@ -65,7 +78,7 @@ public class MeasuringHookMethodVisitor extends AdviceAdapter {
 	private final String fullyQualifiedMethodName;
 
 	public MeasuringHookMethodVisitor(final int access, final String className, final String methodName, final String desc,
-			final MethodVisitor mv) {
+									  final MethodVisitor mv) {
 		super(ASM4, mv, access, methodName, desc);
 		Type[] argumentTypes = Type.getArgumentTypes(methodDesc);
 		this.numArgs = argumentTypes.length;
@@ -112,19 +125,5 @@ public class MeasuringHookMethodVisitor extends AdviceAdapter {
 		} else {
 			mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitMeasuringHook", EXIT_HOOK_DESC);
 		}
-	}
-
-	private String computeFullyQualifiedMethodName(final String className, final String methodName, final Type[] argumentTypes) {
-		StrBuilder sb = new StrBuilder(50);
-		sb.append(className);
-		sb.append('.');
-		sb.append(methodName);
-		sb.append('(');
-		for (int i = 0; i < argumentTypes.length; ++i) {
-			sb.appendSeparator(", ", i);
-			sb.append(argumentTypes[i].getClassName());
-		}
-		sb.append(')');
-		return sb.toString();
 	}
 }

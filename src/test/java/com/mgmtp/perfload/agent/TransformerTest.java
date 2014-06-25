@@ -40,6 +40,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.mgmtp.perfload.agent.util.ClassNameUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -147,7 +148,7 @@ public class TransformerTest {
 
 		String fileContents = Files.toString(MEASURING_LOG_FILE, Charsets.UTF_8);
 		assertTrue(fileContents.matches(String.format("(?s).*%s[^\r\n]*?%s[^\r\n]*?%s.*", "operation", execId, reqId)));
-		assertTrue(fileContents.contains(servletClass.getName()));
+		assertTrue(fileContents.contains(ClassNameUtils.abbreviatePackageName(servletClass.getName())));
 	}
 
 	private Class<?> loadClass(final String fqcn) throws IOException, IllegalClassFormatException, MalformedURLException,
