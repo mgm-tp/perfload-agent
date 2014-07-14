@@ -23,7 +23,7 @@
 	</parent>
 	<groupId>com.mgmtp.perfload</groupId>
 	<artifactId>perfload-agent</artifactId>
-	<version>1.3.0</version>
+	<version>1.4.0-SNAPSHOT</version>
 	<name>mgm perfLoad Agent</name>
 	<description>mgm perfLoad Agent</description>
 
@@ -40,7 +40,7 @@
 		<connection>scm:git:git://github.com/mgm-tp/perfload-agent.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/mgm-tp/perfload-agent.git</developerConnection>
 		<url>https://github.com/mgm-tp/perfload-agent</url>
-		<tag>perfload-agent-1.3.0</tag>
+		<tag>HEAD</tag>
 	</scm>
 
 	<licenses>
