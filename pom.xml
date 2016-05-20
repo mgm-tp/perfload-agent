@@ -19,7 +19,7 @@
 	<parent>
 		<groupId>com.mgmtp.maven.poms</groupId>
 		<artifactId>mgm-oss-parent</artifactId>
-		<version>5</version>
+		<version>15</version>
 	</parent>
 	<groupId>com.mgmtp.perfload</groupId>
 	<artifactId>perfload-agent</artifactId>
