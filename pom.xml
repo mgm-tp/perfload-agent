@@ -138,9 +138,9 @@
 	</build>
 	<dependencies>
 		<dependency>
-			<groupId>${project.groupId}</groupId>
+			<groupId>com.mgmtp.perfload.logging</groupId>
 			<artifactId>perfload-logging</artifactId>
-			<version>4.6.0</version>
+			<version>4.6.1</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-io</groupId>
