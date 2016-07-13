@@ -23,7 +23,7 @@
 	</parent>
 	<groupId>com.mgmtp.perfload.agent</groupId>
 	<artifactId>perfload-agent</artifactId>
-	<version>1.4.1-SNAPSHOT</version>
+	<version>1.4.2-SNAPSHOT</version>
 	<name>mgm perfLoad Agent</name>
 	<description>mgm perfLoad Agent</description>
 
