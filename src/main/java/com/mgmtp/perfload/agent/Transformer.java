@@ -163,7 +163,8 @@ public class Transformer implements ClassFileTransformer {
 		String filePath = substringBeforeLast(className, ".").replace('.', '/');
 		String fileName = substringAfterLast(className, ".") + ".class";
 
-		File dir = new File(new File(agentDir, "classdump"), filePath);
+		File baseDirectory = new File(agentDir, "classdump");
+		File dir = new File(baseDirectory, filePath);
 		dir.mkdirs();
 		File classFile = new File(dir, fileName);
 		try {
