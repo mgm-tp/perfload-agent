@@ -22,13 +22,15 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
-import com.mgmtp.perfload.agent.AgentLogger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.mgmtp.perfload.agent.annotations.Nullable;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
 
 /**
  * Hook for extracting custom perfLoad headers from HTTP requeests.
- * 
+ *
  * @author rnaegele
  */
 @Singleton
@@ -38,14 +40,13 @@ public class ServletApiHook extends AbstractHook {
 	public static final String OPERATION_HEADER = "X-perfLoad-Operation";
 	public static final String REQUEST_ID_HEADER = "X-perfLoad-Request-Id";
 
-	private final AgentLogger logger;
+	private static final Logger logger = LoggerFactory.getLogger(ServletApiHook.class);
 	private final Method getHeaderMethod;
 	private final Provider<ExecutionParams> executionParamsProvider;
 
 	@Inject
-	ServletApiHook(final AgentLogger logger, @Nullable final Method getHeaderMethod,
-			final Provider<ExecutionParams> executionParamsProvider) {
-		this.logger = logger;
+	ServletApiHook(@Nullable final Method getHeaderMethod,
+		final Provider<ExecutionParams> executionParamsProvider) {
 		this.getHeaderMethod = getHeaderMethod;
 		this.executionParamsProvider = executionParamsProvider;
 	}
@@ -69,7 +70,7 @@ public class ServletApiHook extends AbstractHook {
 					execParams.setRequestId(UUID.fromString(requestId));
 				}
 			} catch (Exception ex) {
-				logger.writeln(ex.getMessage(), ex);
+				logger.error(ex.getMessage(), ex);
 			}
 		}
 	}

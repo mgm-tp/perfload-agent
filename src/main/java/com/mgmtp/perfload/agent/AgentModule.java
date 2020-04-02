@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.Deque;
 import java.util.List;
@@ -26,6 +27,9 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.inject.Singleton;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.cache.CacheBuilder;
@@ -46,43 +50,45 @@ import com.mgmtp.perfload.agent.config.MethodInstrumentations;
 import com.mgmtp.perfload.agent.hook.Hook;
 import com.mgmtp.perfload.agent.hook.MeasuringHook;
 import com.mgmtp.perfload.agent.hook.MeasuringHook.Measurement;
-import com.mgmtp.perfload.logging.ResultLogger;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.logging.InfuxDbResultLogger;
-import com.mgmtp.perfload.logging.InfluxDbTcpLogger;
-import com.mgmtp.perfload.logging.SimpleLogger;
+import com.mgmtp.perfload.report.InfluxDbTcpLogger;
+import com.mgmtp.perfload.report.InfuxDbResultLogger;
+import com.mgmtp.perfload.report.ResultLogger;
+import com.mgmtp.perfload.report.SimpleLogger;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
 import net.sf.json.JsonConfig;
 
-import static com.google.common.collect.Lists.newArrayListWithCapacity;
-import static com.google.common.collect.Maps.newHashMapWithExpectedSize;
 import static com.google.common.collect.Queues.newArrayDeque;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Guice module for the agent.
- * 
+ *
  * @author rnaegele
  */
 public class AgentModule extends AbstractModule {
 
 	private final File agentDir;
-	private final AgentLogger agentLogger;
-	private final int pid;
+	private final String measurement;
+	private final URI influxUri;
+	private final static Logger logger = LoggerFactory.getLogger(AgentModule.class);
 
-	public AgentModule(final File agentDir, final AgentLogger agentLogger, final int pid) {
+	public AgentModule(final File agentDir, final int pid) {
 		this.agentDir = agentDir;
-		this.agentLogger = agentLogger;
-		this.pid = pid;
+		this.influxUri = URI.create(System.getProperty("influxdb.uri", "http://localhost:8086/jmeter"));
+		this.measurement = System.getProperty("influxdb.measurement", "jmeter");
+		logger.info("InfluxDB URI: {}{}", influxUri.getSchemeSpecificPart(), influxUri.getAuthority());
+		logger.info("InfluxDB DB: {}", influxUri.getPath());
 	}
 
 	@Override
 	protected void configure() {
 		binder().requireExplicitBindings();
-
 		bindScope(ThreadScoped.class, new ThreadScope());
 		bind(Hook.class).annotatedWith(Measuring.class).to(MeasuringHook.class);
 		bind(Hook.class).annotatedWith(ServletApi.class).to(ServletApiHook.class);
@@ -90,7 +96,6 @@ public class AgentModule extends AbstractModule {
 		bind(ExecutionParams.class);
 		bind(Agent.class);
 		bind(File.class).annotatedWith(AgentDir.class).toInstance(agentDir);
-		bind(AgentLogger.class).toInstance(agentLogger);
 	}
 
 	@Provides
@@ -102,14 +107,8 @@ public class AgentModule extends AbstractModule {
 	@Provides
 	@Singleton
 	SimpleLogger provideMeasuringLogger() {
-		File measuringLog = new File(agentDir, String.format("perfload-agent-measuring-%d.log", pid));
-		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(measuringLog);
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				logger.close();
-			}
-		});
+		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
+		Runtime.getRuntime().addShutdownHook(new Thread(logger::close));
 		return logger;
 	}
 
@@ -128,8 +127,7 @@ public class AgentModule extends AbstractModule {
 	@Singleton
 	@SuppressWarnings("unchecked")
 	Config provideConfig(@ConfigFile final File configFile) throws IOException {
-		String json = Files.toString(configFile, Charsets.UTF_8);
-		JSONObject jsonObject = JSONObject.fromObject(json);
+		JSONObject jsonObject = JSONObject.fromObject(Files.asCharSource(configFile, Charsets.UTF_8).read());
 
 		JsonConfig entryPointsConfig = new JsonConfig();
 		entryPointsConfig.setArrayMode(JsonConfig.MODE_LIST);
@@ -137,55 +135,38 @@ public class AgentModule extends AbstractModule {
 
 		JSONObject entryPointsObject = jsonObject.getJSONObject("entryPoints");
 		List<String> servlets = (List<String>) JSONSerializer.toJava(entryPointsObject.getJSONArray("servlets"),
-				entryPointsConfig);
+			entryPointsConfig);
 		List<String> filters = (List<String>) JSONSerializer.toJava(entryPointsObject.getJSONArray("filters"), entryPointsConfig);
 
 		JSONObject instrumentationsObject = jsonObject.getJSONObject("instrumentations");
 		Set<String> keySet = instrumentationsObject.keySet();
 
 		// instrumentations by class
-		Map<String, Map<String, MethodInstrumentations>> classInstrumentationsMap = newHashMapWithExpectedSize(keySet.size());
+		Map<String, Map<String, MethodInstrumentations>> classInstrumentationsMap = keySet.stream()
+			.collect(toMap(className -> className, className -> getStringMethodInstrumentationsMap(entryPointsConfig, instrumentationsObject, className)));
 
-		for (String className : keySet) {
-			JSONObject classConfig = instrumentationsObject.getJSONObject(className);
-			Set<String> methodEntryKeySet = classConfig.keySet();
+		return new Config(new EntryPoints(servlets, filters), classInstrumentationsMap);
+	}
 
-			// instrumentations by method
-			Map<String, MethodInstrumentations> methodInstrumentationsMap = newHashMapWithExpectedSize(methodEntryKeySet.size());
-
-			for (String methodName : methodEntryKeySet) {
-				JSONArray methodConfig = classConfig.getJSONArray(methodName);
-				List<List<String>> methodArgsLists = newArrayListWithCapacity(methodConfig.size());
-				for (Object obj : methodConfig) {
-					JSONArray paramsArray = (JSONArray) obj;
-					List<String> params = (List<String>) JSONSerializer.toJava(paramsArray, entryPointsConfig);
-					methodArgsLists.add(params);
-				}
-				methodInstrumentationsMap.put(methodName, new MethodInstrumentations(methodName, methodArgsLists));
-			}
-
-			classInstrumentationsMap.put(className, methodInstrumentationsMap);
-		}
-
-		EntryPoints entryPoints = new EntryPoints(servlets, filters);
-		return new Config(entryPoints, classInstrumentationsMap);
+	private Map<String, MethodInstrumentations> getStringMethodInstrumentationsMap(JsonConfig entryPointsConfig, JSONObject instrumentationsObject, String className) {
+		JSONObject classConfig = instrumentationsObject.getJSONObject(className);
+		// instrumentations by method
+		return ((Set<String>) classConfig.keySet()).stream()
+			.collect(toMap(m -> m, methodName ->
+				new MethodInstrumentations(methodName, (List<List<String>>) classConfig.getJSONArray(methodName).stream()
+					.map(obj -> JSONSerializer.toJava((JSONArray) obj, entryPointsConfig))
+					.collect(toList()))));
 	}
 
 	@Provides
 	@Singleton
-	Method provideGetHeaderMethod(final AgentLogger logger) {
+	Method provideGetHeaderMethod(final Logger logger) {
 		try {
 			// need to use the context classloader since the system classloader does not know servlet api classes
 			ClassLoader loader = Thread.currentThread().getContextClassLoader();
 			return Class.forName("javax.servlet.http.HttpServletRequest", true, loader).getMethod("getHeader", String.class);
-		} catch (ClassNotFoundException ex) {
-			logger.writeln("provideGetHeaderMethod: ", ex);
-			return null;
-		} catch (SecurityException ex) {
-			logger.writeln("provideGetHeaderMethod: ", ex);
-			return null;
-		} catch (NoSuchMethodException ex) {
-			logger.writeln("provideGetHeaderMethod: ", ex);
+		} catch (ClassNotFoundException | SecurityException | NoSuchMethodException ex) {
+			logger.error("provideGetHeaderMethod: ", ex);
 			return null;
 		}
 	}
@@ -204,7 +185,7 @@ public class AgentModule extends AbstractModule {
 		CacheLoader<String, ResultLogger> loader = new CacheLoader<String, ResultLogger>() {
 			@Override
 			public ResultLogger load(final String operation) {
-				return new InfuxDbResultLogger(logger, localhost, "agent", operation, "agent",  measurement);
+				return new InfuxDbResultLogger(logger, localhost, "agent", operation, "agent", measurement);
 			}
 		};
 		return CacheBuilder.newBuilder().build(loader);

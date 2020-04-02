@@ -23,11 +23,14 @@ dependencies {
 	//compile group: 'com.mgmtp.perfload.logging', name: 'perfload-logging', version: '4.6.1'
 	compile 'commons-io:commons-io:2.6'
 	compile 'org.apache.commons:commons-lang3:3.9'
-	compile 'org.ow2.asm:asm-all:7.0'
+	compile 'org.apache.commons:commons-text:1.8'
+	compile 'org.ow2.asm:asm:7.0'
+	compile 'org.ow2.asm:asm-commons:7.0'
 	compile 'com.google.inject:guice:4.2.3'
 	compile 'com.google.guava:guava:28.2-jre'
 	compile 'net.sf.json-lib:json-lib:2.4:jdk15'
 	compile 'org.influxdb:influxdb-java:2.17'
+	compile 'org.slf4j:slf4j-api:1.7.30'
 	testCompile('org.testng:testng:7.1.0') {
 		exclude(module: 'junit')
 	}

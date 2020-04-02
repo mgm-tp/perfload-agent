@@ -22,7 +22,7 @@ import com.mgmtp.perfload.agent.annotations.ServletApi;
 
 /**
  * Contains static helper methods that can easily be woven into a method's byte code using ASM.
- * 
+ *
  * @author rnaegele
  */
 public class HookManager {
@@ -42,8 +42,7 @@ public class HookManager {
 		getHook(MEASURING_KEY).stop(source, throwable, fullyQualifiedMethodName);
 	}
 
-	public static void exitMeasuringHook(final Object source, final Throwable throwable, final String fullyQualifiedMethodName,
-			final Object[] args) {
+	public static void exitMeasuringHook(final Object source, final Throwable throwable, final String fullyQualifiedMethodName, final Object[] args) {
 		getHook(MEASURING_KEY).stop(source, throwable, fullyQualifiedMethodName, args);
 	}
 

@@ -15,50 +15,31 @@
  */
 package com.mgmtp.perfload.agent.hook;
 
-import jdk.internal.org.objectweb.asm.MethodVisitor;
-import jdk.internal.org.objectweb.asm.Type;
-import jdk.internal.org.objectweb.asm.commons.AdviceAdapter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 
 import static com.mgmtp.perfload.agent.util.ClassNameUtils.computeFullyQualifiedMethodName;
 
 /**
  * An ASM {@link MethodVisitor} that weave the {@link HookManager} into a method's byte code.
- * 
+ *
  * @author rnaegele
  */
 public class MeasuringHookMethodVisitor extends AdviceAdapter {
 
-	private static final String ENTER_HOOK_DESC = new StringBuilder(100)
-			.append('(')
-			.append(Type.getDescriptor(Object.class))
-			.append(Type.getDescriptor(String.class))
-			.append(")V")
-			.toString();
+	private static final String ENTER_HOOK_DESC = String.format("(%s%s)V", Type.getDescriptor(Object.class),
+		Type.getDescriptor(String.class));
 
-	private static final String ENTER_HOOK_DESC_WITH_ARGS = new StringBuilder(100)
-			.append('(')
-			.append(Type.getDescriptor(Object.class))
-			.append(Type.getDescriptor(String.class))
-			.append(Type.getDescriptor(Object[].class))
-			.append(")V")
-			.toString();
+	private static final String ENTER_HOOK_DESC_WITH_ARGS = String.format("(%s%s%s)V", Type.getDescriptor(Object.class),
+		Type.getDescriptor(String.class), Type.getDescriptor(Object[].class));
 
-	private static final String EXIT_HOOK_DESC = new StringBuilder()
-			.append('(')
-			.append(Type.getDescriptor(Object.class))
-			.append(Type.getDescriptor(Throwable.class))
-			.append(Type.getDescriptor(String.class))
-			.append(")V")
-			.toString();
+	private static final String EXIT_HOOK_DESC = String.format("(%s%s%s)V",
+		Type.getDescriptor(Object.class), Type.getDescriptor(Throwable.class), Type.getDescriptor(String.class));
 
-	private static final String EXIT_HOOK_DESC_WITH_ARGS = new StringBuilder()
-			.append('(')
-			.append(Type.getDescriptor(Object.class))
-			.append(Type.getDescriptor(Throwable.class))
-			.append(Type.getDescriptor(String.class))
-			.append(Type.getDescriptor(Object[].class))
-			.append(")V")
-			.toString();
+	private static final String EXIT_HOOK_DESC_WITH_ARGS = String.format("(%s%s%s%s)V",
+		Type.getDescriptor(Object.class), Type.getDescriptor(Throwable.class),
+		Type.getDescriptor(String.class), Type.getDescriptor(Object[].class));
 
 	private static final String OWNER = HookManager.class.getName().replace('.', '/');
 
@@ -66,7 +47,7 @@ public class MeasuringHookMethodVisitor extends AdviceAdapter {
 	private final String fullyQualifiedMethodName;
 
 	public MeasuringHookMethodVisitor(final int access, final String className, final String methodName, final String desc,
-			final MethodVisitor mv) {
+		final MethodVisitor mv) {
 		super(ASM4, mv, access, methodName, desc);
 		Type[] argumentTypes = Type.getArgumentTypes(methodDesc);
 		this.numArgs = argumentTypes.length;
@@ -83,9 +64,9 @@ public class MeasuringHookMethodVisitor extends AdviceAdapter {
 		push(fullyQualifiedMethodName);
 		if (numArgs > 0) {
 			loadArgArray();
-			mv.visitMethodInsn(INVOKESTATIC, OWNER, "enterMeasuringHook", ENTER_HOOK_DESC_WITH_ARGS);
+			mv.visitMethodInsn(INVOKESTATIC, OWNER, "enterMeasuringHook", ENTER_HOOK_DESC_WITH_ARGS, false);
 		} else {
-			mv.visitMethodInsn(INVOKESTATIC, OWNER, "enterMeasuringHook", ENTER_HOOK_DESC);
+			mv.visitMethodInsn(INVOKESTATIC, OWNER, "enterMeasuringHook", ENTER_HOOK_DESC, false);
 		}
 	}
 
@@ -109,9 +90,9 @@ public class MeasuringHookMethodVisitor extends AdviceAdapter {
 		push(fullyQualifiedMethodName);
 		if (numArgs > 0) {
 			loadArgArray();
-			mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitMeasuringHook", EXIT_HOOK_DESC_WITH_ARGS);
+			mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitMeasuringHook", EXIT_HOOK_DESC_WITH_ARGS, false);
 		} else {
-			mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitMeasuringHook", EXIT_HOOK_DESC);
+			mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitMeasuringHook", EXIT_HOOK_DESC, false);
 		}
 	}
 }

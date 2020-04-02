@@ -15,13 +15,6 @@
  */
 package com.mgmtp.perfload.agent;
 
-import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.IllegalClassFormatException;
@@ -40,7 +33,6 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.mgmtp.perfload.agent.util.ClassNameUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -53,6 +45,14 @@ import com.google.inject.Injector;
 import com.google.inject.util.Modules;
 import com.mgmtp.perfload.agent.annotations.ConfigFile;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
+import com.mgmtp.perfload.agent.util.ClassNameUtils;
+
+import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  * @author rnaegele
@@ -74,13 +74,11 @@ public class TransformerTest {
 	private UUID reqId;
 
 	@BeforeClass
-	public void init() throws MalformedURLException, IOException, IllegalClassFormatException, ClassNotFoundException {
+	public void init() throws IOException, IllegalClassFormatException, ClassNotFoundException {
 		final File agentDir = new File("target");
 		int pid = Agent.retrievePid();
-		File agentLog = new File(agentDir, String.format("perfload-agent-%d.log", pid));
-		AgentLogger logger = new AgentLogger(agentLog);
 
-		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, logger, pid)).with(
+		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, pid)).with(
 				new AbstractModule() {
 					@Override
 					protected void configure() {

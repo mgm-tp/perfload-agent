@@ -25,53 +25,50 @@ import java.util.regex.Pattern;
 import javax.inject.Inject;
 
 import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.inject.Injector;
 
 /**
  * Java agent main class. Called by the JVM.
- * 
+ *
  * @author rnaegele
  */
 public class Agent {
 
-	private final AgentLogger logger;
+	private static final Logger logger = LoggerFactory.getLogger(Agent.class);
 	private final Transformer transformer;
 
 	@Inject
-	Agent(final AgentLogger logger, final Transformer transformer) {
-		this.logger = logger;
+	Agent(Transformer transformer) {
 		this.transformer = transformer;
 	}
 
 	void addTransformer(final Instrumentation instrumentation) {
-		logger.writeln("Adding transformer...");
+		logger.info("Adding transformer...");
 		instrumentation.addTransformer(transformer);
 	}
 
 	/**
-	 * @param agentArgs
-	 *            arguments for the agent; not used
-	 * @param instrumentation
-	 *            the {@link Instrumentation} instance
+	 * @param agentArgs arguments for the agent; not used
+	 * @param instrumentation the {@link Instrumentation} instance
 	 */
 	public static void premain(final String agentArgs, final Instrumentation instrumentation) {
-		AgentLogger logger = null;
+		Logger logger = null;
 		try {
 			File agentDir = getAgentDir();
 			int pid = retrievePid();
-			File agentLog = new File(agentDir, String.format("perfload-agent-%d.log", pid));
-			logger = new AgentLogger(agentLog);
+			logger = LoggerFactory.getLogger(Agent.class);
 
-			logger.writeln("Initializing perfLoad Agent...");
+			logger.info("Initializing perfLoad Agent...");
 
-			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, logger, pid));
+			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, pid));
 			injector.getInstance(Agent.class).addTransformer(instrumentation);
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			if (logger != null) {
-				logger.writeln("Error initializing perfLoad Agent.", ex);
-				logger.close();
+				logger.info("Error initializing perfLoad Agent.", ex);
 			}
 		}
 	}

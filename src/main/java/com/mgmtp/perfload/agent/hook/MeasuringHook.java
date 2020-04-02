@@ -22,30 +22,31 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.cache.LoadingCache;
-import com.mgmtp.perfload.agent.AgentLogger;
-import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.logging.ResultLogger;
 import com.mgmtp.perfload.agent.StopWatch;
+import com.mgmtp.perfload.agent.util.ExecutionParams;
+import com.mgmtp.perfload.report.ResultLogger;
 
 /**
  * Hook for timing methods.
- * 
+ *
  * @author rnaegele
  */
 @Singleton
 public class MeasuringHook extends AbstractHook {
 
 	private final Provider<Deque<Measurement>> measurementsStack;
-	private final AgentLogger logger;
+	private static final Logger logger = LoggerFactory.getLogger(MeasuringHook.class);
 	private final Provider<ExecutionParams> executionParamsProvider;
 	private final LoadingCache<String, ResultLogger> resultLoggerCache;
 
 	@Inject
-	MeasuringHook(final Provider<Deque<Measurement>> measurementsStack, final AgentLogger logger,
-			final Provider<ExecutionParams> executionParamsProvider, final LoadingCache<String, ResultLogger> resultLoggerCache) {
+	MeasuringHook(Provider<Deque<Measurement>> measurementsStack, Provider<ExecutionParams> executionParamsProvider,
+		LoadingCache<String, ResultLogger> resultLoggerCache) {
 		this.measurementsStack = measurementsStack;
-		this.logger = logger;
 		this.executionParamsProvider = executionParamsProvider;
 		this.resultLoggerCache = resultLoggerCache;
 	}
@@ -79,21 +80,21 @@ public class MeasuringHook extends AbstractHook {
 
 				ResultLogger resultLogger = resultLoggerCache.getUnchecked(operation != null ? operation : "unknown");
 				resultLogger.logResult(errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
-						fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
-						executionParams.getRequestId());
+					fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
+					executionParams.getRequestId());
 
 				return;
 			}
 		}
 
 		// in case of an exception in the method we might end up here and lose the measurement
-		logger.writeln("No measurement found. Clearing measurements stack...");
+		logger.info("No measurement found. Clearing measurements stack...");
 		deque.clear();
 	}
 
 	/**
 	 * Pojo for measurments.
-	 * 
+	 *
 	 * @author rnaegele
 	 */
 	public static class Measurement {

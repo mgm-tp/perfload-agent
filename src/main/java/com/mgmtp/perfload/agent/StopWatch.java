@@ -11,9 +11,6 @@ import org.apache.commons.lang3.time.DurationFormatUtils;
  * @author rnaeegele
  */
 public class StopWatch {
-	private static final long SECOND = 1000L;
-	private static final long MINUTE = 60000L;
-	private static final long HOUR = 3600000L;
 
 	private Instant start;
 	private Instant end;

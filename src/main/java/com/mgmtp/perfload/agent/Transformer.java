@@ -18,7 +18,6 @@ package com.mgmtp.perfload.agent;
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +26,14 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.mgmtp.perfload.agent.annotations.AgentDir;
 import com.mgmtp.perfload.agent.config.Config;
@@ -34,13 +41,6 @@ import com.mgmtp.perfload.agent.config.EntryPoints;
 import com.mgmtp.perfload.agent.config.MethodInstrumentations;
 import com.mgmtp.perfload.agent.hook.MeasuringHookMethodVisitor;
 import com.mgmtp.perfload.agent.hook.ServletApiHookMethodVisitor;
-
-import jdk.internal.org.objectweb.asm.ClassReader;
-import jdk.internal.org.objectweb.asm.ClassVisitor;
-import jdk.internal.org.objectweb.asm.ClassWriter;
-import jdk.internal.org.objectweb.asm.MethodVisitor;
-import jdk.internal.org.objectweb.asm.Opcodes;
-import jdk.internal.org.objectweb.asm.Type;
 
 import static com.google.common.collect.Lists.newArrayListWithCapacity;
 import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
@@ -57,19 +57,18 @@ public class Transformer implements ClassFileTransformer {
 	private static final String SERVLET_SERVICE_DESC = "(Ljavax/servlet/http/HttpServletRequest;Ljavax/servlet/http/HttpServletResponse;)V";
 
 	private final Config config;
-	private final AgentLogger logger;
+	private static final Logger logger = LoggerFactory.getLogger(Transformer.class);
 	private final File agentDir;
 
 	@Inject
-	public Transformer(final Config config, final AgentLogger logger, @AgentDir final File agentDir) {
+	public Transformer(final Config config, @AgentDir final File agentDir) {
 		this.config = config;
-		this.logger = logger;
 		this.agentDir = agentDir;
 	}
 
 	@Override
 	public byte[] transform(final ClassLoader loader, final String className, final Class<?> classBeingRedefined,
-			final ProtectionDomain protectionDomain, final byte[] classfileBuffer) throws IllegalClassFormatException {
+		final ProtectionDomain protectionDomain, final byte[] classfileBuffer) {
 
 		final String classNameWithDots = className.replace('/', '.');
 		EntryPoints entryPoints = config.getEntryPoints();
@@ -84,7 +83,7 @@ public class Transformer implements ClassFileTransformer {
 			return null;
 		}
 
-		logger.writeln("Transforming class: " + classNameWithDots);
+		logger.info("Transforming class: " + classNameWithDots);
 
 		// flag for storing if at least one hook is weaved in
 		final MutableBoolean weaveFlag = new MutableBoolean();
@@ -94,11 +93,11 @@ public class Transformer implements ClassFileTransformer {
 		ClassVisitor cv = new ClassVisitor(Opcodes.ASM4, cw) {
 			@Override
 			public MethodVisitor visitMethod(final int access, final String name, final String desc, final String signature,
-					final String[] exceptions) {
+				final String[] exceptions) {
 				MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 				if (mv != null) {
 					if (isFilter && "doFilter".equals(name)
-							|| isServlet && "service".equals(name) && SERVLET_SERVICE_DESC.equals(desc)) {
+						|| isServlet && "service".equals(name) && SERVLET_SERVICE_DESC.equals(desc)) {
 						mv = createServletApiHookVisitor(access, name, desc, mv);
 					}
 					if (methodsConfig != null) {
@@ -112,7 +111,7 @@ public class Transformer implements ClassFileTransformer {
 			}
 
 			private MethodVisitor createMeasuringHookVisitor(final int access, final String methodName, final String desc,
-					final MethodVisitor mv, final MethodInstrumentations methodInstrumentations) {
+				final MethodVisitor mv, final MethodInstrumentations methodInstrumentations) {
 				boolean weave = false;
 				if (methodInstrumentations.isEmpty()) {
 					// no params configured, so we just weave the hook into any method with this name
@@ -132,7 +131,7 @@ public class Transformer implements ClassFileTransformer {
 					}
 				}
 				if (weave) {
-					logger.writeln("Instrumenting method: " + classNameWithDots + "." + methodName);
+					logger.info("Instrumenting method: " + classNameWithDots + "." + methodName);
 					weaveFlag.setValue(true);
 					return new MeasuringHookMethodVisitor(access, classNameWithDots, methodName, desc, mv);
 				}
@@ -140,8 +139,8 @@ public class Transformer implements ClassFileTransformer {
 			}
 
 			private MethodVisitor createServletApiHookVisitor(final int access, final String methodName, final String desc,
-					final MethodVisitor mv) {
-				logger.writeln("Adding servlet api hook: " + classNameWithDots + "." + methodName);
+				final MethodVisitor mv) {
+				logger.info("Adding servlet api hook: " + classNameWithDots + "." + methodName);
 				weaveFlag.setValue(true);
 				return new ServletApiHookMethodVisitor(access, methodName, desc, mv);
 			}
@@ -170,7 +169,7 @@ public class Transformer implements ClassFileTransformer {
 		try {
 			writeByteArrayToFile(classFile, transformedclassBytes);
 		} catch (IOException ex) {
-			logger.writeln(ex.getMessage() + "-" + classFile, ex);
+			logger.error(ex.getMessage() + "-" + classFile, ex);
 		}
 	}
 }

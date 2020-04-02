@@ -15,22 +15,18 @@
  */
 package com.mgmtp.perfload.agent.hook;
 
-import jdk.internal.org.objectweb.asm.MethodVisitor;
-import jdk.internal.org.objectweb.asm.Type;
-import jdk.internal.org.objectweb.asm.commons.AdviceAdapter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AdviceAdapter;
 
 /**
  * An ASM {@link MethodVisitor} that weave the {@link HookManager} into a method's byte code.
- * 
+ *
  * @author rnaegele
  */
 public class ServletApiHookMethodVisitor extends AdviceAdapter {
-	private static final String ENTER_HOOK_DESC = new StringBuilder(100)
-			.append('(')
-			.append(Type.getDescriptor(Object.class))
-			.append(Type.getDescriptor(Object[].class))
-			.append(")V")
-			.toString();
+	private static final String ENTER_HOOK_DESC = String.format("(%s%s)V",
+		Type.getDescriptor(Object.class), Type.getDescriptor(Object[].class));
 
 	private static final String EXIT_HOOK_DESC = "()V";
 
@@ -44,11 +40,11 @@ public class ServletApiHookMethodVisitor extends AdviceAdapter {
 	protected void onMethodEnter() {
 		loadThis();
 		loadArgArray();
-		mv.visitMethodInsn(INVOKESTATIC, OWNER, "enterServletApiHook", ENTER_HOOK_DESC);
+		mv.visitMethodInsn(INVOKESTATIC, OWNER, "enterServletApiHook", ENTER_HOOK_DESC, false);
 	}
 
 	@Override
 	protected void onMethodExit(final int opcode) {
-		mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitServletApiHook", EXIT_HOOK_DESC);
+		mv.visitMethodInsn(INVOKESTATIC, OWNER, "exitServletApiHook", EXIT_HOOK_DESC, false);
 	}
 }
