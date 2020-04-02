@@ -55,11 +55,13 @@ jar {
 }
 
 shadowJar {
+	//exclude 'logback.xml'
 	relocate 'org.objectweb', "${project.group}.shaded.org.objectweb"
 	relocate 'org.aopalliance', "${project.group}.shaded.org.aopalliance"
 	relocate 'org.apache', "${project.group}.shaded.org.apache"
 	relocate 'com.google', "${project.group}.shaded.com.google"
 	relocate 'net.sf', "${project.group}.shaded.net.sf"
 	relocate 'ch.qos.logback', 'ch.qos.logback'
+	relocate 'org.slf4j', 'org.slf4j'
 }
 build.dependsOn(shadowJar)

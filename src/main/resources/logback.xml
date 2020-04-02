@@ -6,27 +6,9 @@
 		</encoder>
 	</appender>
 
-	<appender name="file" class="ch.qos.logback.core.FileAppender">
-		<append>false</append>
-		<file>logs/perfload-client.log</file>
-		<encoder>
-			<pattern>%date{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{35} - %msg%n</pattern>
-		</encoder>
-	</appender>
-
-	<appender name="taskdurations" class="ch.qos.logback.core.FileAppender">
-		<append>false</append>
-		<file>logs/perfload-taskdurations.log</file>
-		<encoder>
-			<pattern>%msg%n</pattern>
-		</encoder>
-	</appender>
-
 	<logger name="taskdurations" level="INFO">
 		<appender-ref ref="taskdurations" />
 	</logger>
-
-	<logger name="org.apache" level="INFO" />
 
 	<root level="INFO">
 		<appender-ref ref="file" />

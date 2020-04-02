@@ -28,47 +28,40 @@ import org.influxdb.dto.Point;
 
 import com.mgmtp.perfload.agent.StopWatch;
 
-public class InfuxDbResultLogger implements ResultLogger {
+public class InfluxDbResultLogger implements ResultLogger {
 
+	public static final String FAIL = "fail";
+	public static final String OK = "ok";
 	private final SimpleLogger logger;
 	protected final InetAddress localAddress;
 	protected final String layer;
 	protected final String operation;
+	private final int pid;
 	protected final String target;
-	private String measurement;
+	private final String measurement;
 
 	/**
 	 * @param logger the underlying logger to use
 	 * @param localAddress the local address of the client
 	 * @param layer some identifier for the layer in which the result is logged (e. g. client, server, ...)
+	 * @param pid
 	 */
-	public InfuxDbResultLogger(SimpleLogger logger, InetAddress localAddress, String layer, String operation, String target, String measurement) {
+	public InfluxDbResultLogger(SimpleLogger logger, InetAddress localAddress, String layer, String operation, int pid, String target, String measurement) {
 		this.logger = logger;
 		this.localAddress = localAddress;
 		this.layer = layer;
 		this.operation = operation;
+		this.pid = pid;
 		this.target = target;
 		this.measurement = measurement;
-	}
-
-	/**
-	 * Delegates to
-	 * {@link #logResult(String, long, StopWatch, StopWatch, String, String, String, UUID, UUID, Object...)}
-	 * .
-	 */
-	@Override
-	public void logResult(final long timestamp, final StopWatch ti1, final StopWatch ti2, final String type,
-		final String uri, final String uriAlias, final UUID executionId, final UUID requestId, final Object... extraArgs) {
-		logResult(null, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs);
 	}
 
 	/**
 	 * {@inheritDoc} See class comment above for details.
 	 */
 	@Override
-	public void logResult( String message,long timestamp,StopWatch ti1, StopWatch ti2,
-		final String type, final String uri, final String uriAlias, final UUID executionId, final UUID requestId,
-		final Object... extraArgs) {
+	public void logResult(String message, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
 
 		Point.Builder builder = Point.measurement(measurement)
 			.time(timestamp, TimeUnit.MILLISECONDS)
@@ -76,15 +69,19 @@ public class InfuxDbResultLogger implements ResultLogger {
 			.tag("target", target)
 			.tag("type", type)
 			.tag("uri", uri)
+			.tag("pid", String.valueOf(pid))
 			.tag("uriAlias", uriAlias)
 			.tag("localAddress", localAddress.toString())
 			.tag("layer", layer)
 			.tag("executionId", String.valueOf(executionId))
 			.tag("requestId", String.valueOf(requestId))
-			.tag("message", message)
-			.tag("status", message == null ? "ok" : "fail")
 			.addField("ti1", ti1.duration().getNano())
 			.addField("ti2", ti2.duration().getNano());
+		if (message == null) {
+			builder.tag("status", OK);
+		} else {
+			builder.tag("message", message).tag("status", FAIL);
+		}
 		logger.writeln(addExtraArgs(builder, extraArgs).build().lineProtocol());
 	}
 
@@ -93,8 +90,14 @@ public class InfuxDbResultLogger implements ResultLogger {
 		builder.tag(Stream.of(extraArgs).flatMap(o -> {
 			Stream<Map.Entry<String, String>> setStream;
 			if (o instanceof Map) {
-				setStream = ((Map<String, String>) o).entrySet().stream();
+				try {
+					//noinspection unchecked
+					setStream = ((Map<String, String>) o).entrySet().stream();
+				} catch (Exception e) {
+					setStream = Stream.empty();
+				}
 			} else {
+				//noinspection unchecked
 				setStream = Stream.of((Map.Entry<String, String>) new DefaultMapEntry(String.format("arg%d", i.getAndIncrement()), o.toString()));
 			}
 			return setStream;

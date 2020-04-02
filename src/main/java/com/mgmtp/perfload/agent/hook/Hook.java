@@ -17,58 +17,46 @@ package com.mgmtp.perfload.agent.hook;
 
 /**
  * Interface for bytecode hooks.
- * 
+ *
  * @author rnaegele
  */
 public interface Hook {
 
 	/**
 	 * Starts the hook.
-	 * 
-	 * @param source
-	 *            the runtime instance of the class the hook was inserted into
-	 * @param fullyQualifiedMethodName
-	 *            the fully qualified name of the method the hook was inserted into
+	 *
+	 * @param source the runtime instance of the class the hook was inserted into
+	 * @param fullyQualifiedMethodName the fully qualified name of the method the hook was inserted into
 	 */
 	void start(Object source, String fullyQualifiedMethodName);
 
 	/**
 	 * Starts the hook.
-	 * 
-	 * @param source
-	 *            the runtime instance of the class the hook is inserted into
-	 * @param fullyQualifiedMethodName
-	 *            the fully qualified name of the method the hook was inserted into
-	 * @param args
-	 *            the method arguments, may be empty for a no-args method
+	 *
+	 * @param source the runtime instance of the class the hook is inserted into
+	 * @param fullyQualifiedMethodName the fully qualified name of the method the hook was inserted into
+	 * @param args the method arguments, may be empty for a no-args method
 	 */
 	void start(Object source, String fullyQualifiedMethodName, Object[] args);
 
 	/**
 	 * Stops the hook.
-	 * 
-	 * @param source
-	 *            the runtime instance of the class the hook is inserted into
-	 * @param throwable
-	 *            a potential throwable that is on the method stack (may be non-null only if this is
-	 *            an option in the original byte code)
-	 * @param fullyQualifiedMethodName
-	 *            the fully qualified name of the method the hook was inserted into
+	 *
+	 * @param source the runtime instance of the class the hook is inserted into
+	 * @param throwable a potential throwable that is on the method stack (may be non-null only if this is
+	 * 	an option in the original byte code)
+	 * @param fullyQualifiedMethodName the fully qualified name of the method the hook was inserted into
 	 */
 	void stop(Object source, Throwable throwable, String fullyQualifiedMethodName);
 
 	/**
 	 * Stops the hook.
-	 * 
-	 * @param source
-	 *            the runtime instance of the class the hook is inserted into
-	 * @param throwable
-	 *            a potential throwable that is on the method stack (may be non-null only if this is
-	 *            an option in the original byte code)
-	 * @param fullyQualifiedMethodName
-	 *            the fully qualified name of the method the hook was inserted into
-	 * @param args
-	 *            the method arguments, may be empty for a no-args method
+	 *
+	 * @param source the runtime instance of the class the hook is inserted into
+	 * @param throwable a potential throwable that is on the method stack (may be non-null only if this is
+	 * 	an option in the original byte code)
+	 * @param fullyQualifiedMethodName the fully qualified name of the method the hook was inserted into
+	 * @param args the method arguments, may be empty for a no-args method
 	 */
 	void stop(Object source, Throwable throwable, String fullyQualifiedMethodName, Object[] args);
 }

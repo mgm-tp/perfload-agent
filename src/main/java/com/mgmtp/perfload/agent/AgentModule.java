@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.inject.Singleton;
 
 import org.slf4j.Logger;
@@ -53,7 +54,7 @@ import com.mgmtp.perfload.agent.hook.MeasuringHook.Measurement;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
 import com.mgmtp.perfload.report.InfluxDbTcpLogger;
-import com.mgmtp.perfload.report.InfuxDbResultLogger;
+import com.mgmtp.perfload.report.InfluxDbResultLogger;
 import com.mgmtp.perfload.report.ResultLogger;
 import com.mgmtp.perfload.report.SimpleLogger;
 
@@ -73,17 +74,18 @@ import static java.util.stream.Collectors.toMap;
  */
 public class AgentModule extends AbstractModule {
 
+	public static final String AGENT = "agent";
 	private final File agentDir;
+	private final int pid;
 	private final String measurement;
 	private final URI influxUri;
-	private final static Logger logger = LoggerFactory.getLogger(AgentModule.class);
+	private final static Logger LOG = LoggerFactory.getLogger(AgentModule.class);
 
-	public AgentModule(final File agentDir, final int pid) {
+	public AgentModule(final File agentDir, int pid) {
 		this.agentDir = agentDir;
+		this.pid = pid;
 		this.influxUri = URI.create(System.getProperty("influxdb.uri", "http://localhost:8086/jmeter"));
 		this.measurement = System.getProperty("influxdb.measurement", "jmeter");
-		logger.info("InfluxDB URI: {}{}", influxUri.getSchemeSpecificPart(), influxUri.getAuthority());
-		logger.info("InfluxDB DB: {}", influxUri.getPath());
 	}
 
 	@Override
@@ -109,6 +111,7 @@ public class AgentModule extends AbstractModule {
 	SimpleLogger provideMeasuringLogger() {
 		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
 		Runtime.getRuntime().addShutdownHook(new Thread(logger::close));
+		logger.open();
 		return logger;
 	}
 
@@ -160,34 +163,36 @@ public class AgentModule extends AbstractModule {
 
 	@Provides
 	@Singleton
-	Method provideGetHeaderMethod(final Logger logger) {
+	Method provideGetHeaderMethod() {
 		try {
 			// need to use the context classloader since the system classloader does not know servlet api classes
 			ClassLoader loader = Thread.currentThread().getContextClassLoader();
 			return Class.forName("javax.servlet.http.HttpServletRequest", true, loader).getMethod("getHeader", String.class);
 		} catch (ClassNotFoundException | SecurityException | NoSuchMethodException ex) {
-			logger.error("provideGetHeaderMethod: ", ex);
+			LOG.error("provideGetHeaderMethod: ", ex);
 			return null;
 		}
 	}
 
 	@Provides
 	@Singleton
-	LoadingCache<String, ResultLogger> provideResultLoggerCache(final SimpleLogger logger) {
+	LoadingCache<String, ResultLogger> provideResultLoggerCache(final SimpleLogger measureLogger) {
+		final InetAddress localhost = getInetAddress();
+		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultLogger>() {
+			@Override
+			public ResultLogger load(@Nonnull String operation) {
+				return new InfluxDbResultLogger(measureLogger, localhost, AGENT, operation, pid, AGENT, measurement);
+			}
+		});
+	}
+
+	private InetAddress getInetAddress() {
 		InetAddress tmpLocalhost;
 		try {
 			tmpLocalhost = InetAddress.getLocalHost();
 		} catch (UnknownHostException ex) {
 			tmpLocalhost = null;
 		}
-		final InetAddress localhost = tmpLocalhost;
-
-		CacheLoader<String, ResultLogger> loader = new CacheLoader<String, ResultLogger>() {
-			@Override
-			public ResultLogger load(final String operation) {
-				return new InfuxDbResultLogger(logger, localhost, "agent", operation, "agent", measurement);
-			}
-		};
-		return CacheBuilder.newBuilder().build(loader);
+		return tmpLocalhost;
 	}
 }

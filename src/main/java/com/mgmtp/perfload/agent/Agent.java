@@ -37,7 +37,7 @@ import com.google.inject.Injector;
  */
 public class Agent {
 
-	private static final Logger logger = LoggerFactory.getLogger(Agent.class);
+	private static final Logger LOG = LoggerFactory.getLogger(Agent.class);
 	private final Transformer transformer;
 
 	@Inject
@@ -46,7 +46,7 @@ public class Agent {
 	}
 
 	void addTransformer(final Instrumentation instrumentation) {
-		logger.info("Adding transformer...");
+		LOG.info("Adding transformer...");
 		instrumentation.addTransformer(transformer);
 	}
 
@@ -55,20 +55,19 @@ public class Agent {
 	 * @param instrumentation the {@link Instrumentation} instance
 	 */
 	public static void premain(final String agentArgs, final Instrumentation instrumentation) {
-		Logger logger = null;
+
 		try {
 			File agentDir = getAgentDir();
 			int pid = retrievePid();
-			logger = LoggerFactory.getLogger(Agent.class);
 
-			logger.info("Initializing perfLoad Agent...");
+			LOG.info("Initializing perfLoad Agent...");
 
-			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, pid));
+			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir,pid));
 			injector.getInstance(Agent.class).addTransformer(instrumentation);
 		} catch (Exception ex) {
 			ex.printStackTrace();
-			if (logger != null) {
-				logger.info("Error initializing perfLoad Agent.", ex);
+			if (LOG != null) {
+				LOG.info("Error initializing perfLoad Agent.", ex);
 			}
 		}
 	}

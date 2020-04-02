@@ -25,7 +25,7 @@ import javax.inject.Scope;
 /**
  * Scope annotation for {@link ThreadScope}. Types annotated with this annotation are bound in
  * {@link ThreadScope}.
- * 
+ *
  * @author rnaegele
  */
 @Target({ ElementType.TYPE, ElementType.METHOD })

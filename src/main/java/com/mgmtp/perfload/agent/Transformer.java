@@ -57,7 +57,7 @@ public class Transformer implements ClassFileTransformer {
 	private static final String SERVLET_SERVICE_DESC = "(Ljavax/servlet/http/HttpServletRequest;Ljavax/servlet/http/HttpServletResponse;)V";
 
 	private final Config config;
-	private static final Logger logger = LoggerFactory.getLogger(Transformer.class);
+	private static final Logger LOG = LoggerFactory.getLogger(Transformer.class);
 	private final File agentDir;
 
 	@Inject
@@ -83,7 +83,7 @@ public class Transformer implements ClassFileTransformer {
 			return null;
 		}
 
-		logger.info("Transforming class: " + classNameWithDots);
+		LOG.info("Transforming class: " + classNameWithDots);
 
 		// flag for storing if at least one hook is weaved in
 		final MutableBoolean weaveFlag = new MutableBoolean();
@@ -131,7 +131,7 @@ public class Transformer implements ClassFileTransformer {
 					}
 				}
 				if (weave) {
-					logger.info("Instrumenting method: " + classNameWithDots + "." + methodName);
+					LOG.info("Instrumenting method: " + classNameWithDots + "." + methodName);
 					weaveFlag.setValue(true);
 					return new MeasuringHookMethodVisitor(access, classNameWithDots, methodName, desc, mv);
 				}
@@ -140,7 +140,7 @@ public class Transformer implements ClassFileTransformer {
 
 			private MethodVisitor createServletApiHookVisitor(final int access, final String methodName, final String desc,
 				final MethodVisitor mv) {
-				logger.info("Adding servlet api hook: " + classNameWithDots + "." + methodName);
+				LOG.info("Adding servlet api hook: " + classNameWithDots + "." + methodName);
 				weaveFlag.setValue(true);
 				return new ServletApiHookMethodVisitor(access, methodName, desc, mv);
 			}
@@ -150,16 +150,16 @@ public class Transformer implements ClassFileTransformer {
 		cr.accept(cv, ClassReader.EXPAND_FRAMES);
 
 		if (weaveFlag.isTrue()) {
-			byte[] transformedclassBytes = cw.toByteArray();
-			dumpTransformedClassFile(className, transformedclassBytes);
-			return transformedclassBytes;
+			byte[] transformedClassBytes = cw.toByteArray();
+			dumpTransformedClassFile(className, transformedClassBytes);
+			return transformedClassBytes;
 		}
 
 		// no transformation
 		return null;
 	}
 
-	private void dumpTransformedClassFile(final String className, final byte[] transformedclassBytes) {
+	private void dumpTransformedClassFile(final String className, final byte[] transformedClassBytes) {
 		String filePath = substringBeforeLast(className, ".").replace('.', '/');
 		String fileName = substringAfterLast(className, ".") + ".class";
 
@@ -167,9 +167,9 @@ public class Transformer implements ClassFileTransformer {
 		dir.mkdirs();
 		File classFile = new File(dir, fileName);
 		try {
-			writeByteArrayToFile(classFile, transformedclassBytes);
+			writeByteArrayToFile(classFile, transformedClassBytes);
 		} catch (IOException ex) {
-			logger.error(ex.getMessage() + "-" + classFile, ex);
+			LOG.error(ex.getMessage() + "-" + classFile, ex);
 		}
 	}
 }

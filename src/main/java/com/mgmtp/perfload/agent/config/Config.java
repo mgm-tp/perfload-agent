@@ -39,7 +39,7 @@ public class Config {
 
 	/**
 	 * Returns a map of class names mapped to method instrumentations by method names.
-	 * 
+	 *
 	 * @return the instrumentations
 	 */
 	public Map<String, Map<String, MethodInstrumentations>> getInstrumentations() {

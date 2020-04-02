@@ -15,8 +15,6 @@
  */
 package com.mgmtp.perfload.report;
 
-import java.io.IOException;
-
 /**
  * Interface for perfLoad's logger for measurings.
  *
@@ -27,7 +25,7 @@ public interface SimpleLogger {
 	/**
 	 * Opens the logger.
 	 */
-	void open() throws IOException;
+	void open();
 
 	/**
 	 * Writes the output to logger.

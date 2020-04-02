@@ -29,53 +29,18 @@ public interface ResultLogger {
 	/**
 	 * Logs a test result.
 	 *
-	 * @param ti1
-	 *            a time interval representing a time measurement
-	 * @param ti2
-	 *            a time interval representing a time measurement
-	 * @param type
-	 *            the type associated with this log message (e. g. the request type such as GET or
-	 *            POST for HTTP requests)
-	 * @param uri
-	 *            the uri associated with this log message
-	 * @param uriAlias
-	 *            the uriAlias associated with this log message
-	 * @param executionId
-	 *            the execution id (all requests that are part of the same operation execution get
-	 *            the same execution id)
-	 * @param requestId
-	 *            the request id (unique for each request)
-	 * @param extraArgs
-	 *            additional application-specific arguments to be logged
-	 */
-	void logResult(long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri, String uriAlias,
-		UUID executionId, UUID requestId, Object... extraArgs);
-
-	/**
-	 * Logs a test result.
-	 *
-	 * @param errorMessage
-	 *            the error message
-	 * @param timestamp
-	 *            timestamp before taking time measurements
-	 * @param ti1
-	 *            a time interval representing a time measurement
-	 * @param ti2
-	 *            a time interval representing a time measurement
-	 * @param type
-	 *            the type associated with this log message (e. g. the request type such as GET or
-	 *            POST for HTTP requests)
-	 * @param uri
-	 *            the uri associated with this log message
-	 * @param uriAlias
-	 *            the uriAlias associated with this log message
-	 * @param executionId
-	 *            the execution id (all requests that are part of the same operation execution get
-	 *            the same execution id)
-	 * @param requestId
-	 *            the request id (unique for each request)
-	 * @param extraArgs
-	 *            additional application-specific arguments to be logged
+	 * @param errorMessage the error message
+	 * @param timestamp timestamp before taking time measurements
+	 * @param ti1 a time interval representing a time measurement
+	 * @param ti2 a time interval representing a time measurement
+	 * @param type the type associated with this log message (e. g. the request type such as GET or
+	 * 	POST for HTTP requests)
+	 * @param uri the uri associated with this log message
+	 * @param uriAlias the uriAlias associated with this log message
+	 * @param executionId the execution id (all requests that are part of the same operation execution get
+	 * 	the same execution id)
+	 * @param requestId the request id (unique for each request)
+	 * @param extraArgs additional application-specific arguments to be logged
 	 */
 	void logResult(String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
 		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs);

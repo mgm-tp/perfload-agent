@@ -21,7 +21,7 @@ import com.google.inject.Module;
 
 /**
  * Enum singleton that holds the Guice injector.
- * 
+ *
  * @author rnaegele
  */
 public enum InjectorHolder {

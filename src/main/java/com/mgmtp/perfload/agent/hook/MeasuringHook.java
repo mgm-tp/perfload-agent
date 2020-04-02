@@ -39,7 +39,7 @@ import com.mgmtp.perfload.report.ResultLogger;
 public class MeasuringHook extends AbstractHook {
 
 	private final Provider<Deque<Measurement>> measurementsStack;
-	private static final Logger logger = LoggerFactory.getLogger(MeasuringHook.class);
+	private static final Logger LOG = LoggerFactory.getLogger(MeasuringHook.class);
 	private final Provider<ExecutionParams> executionParamsProvider;
 	private final LoadingCache<String, ResultLogger> resultLoggerCache;
 
@@ -88,12 +88,12 @@ public class MeasuringHook extends AbstractHook {
 		}
 
 		// in case of an exception in the method we might end up here and lose the measurement
-		logger.info("No measurement found. Clearing measurements stack...");
+		LOG.info("No measurement found. Clearing measurements stack...");
 		deque.clear();
 	}
 
 	/**
-	 * Pojo for measurments.
+	 * Pojo for measurements.
 	 *
 	 * @author rnaegele
 	 */

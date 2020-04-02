@@ -29,7 +29,7 @@ import com.mgmtp.perfload.agent.annotations.Nullable;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
 
 /**
- * Hook for extracting custom perfLoad headers from HTTP requeests.
+ * Hook for extracting custom perfLoad headers from HTTP requests.
  *
  * @author rnaegele
  */
@@ -40,7 +40,7 @@ public class ServletApiHook extends AbstractHook {
 	public static final String OPERATION_HEADER = "X-perfLoad-Operation";
 	public static final String REQUEST_ID_HEADER = "X-perfLoad-Request-Id";
 
-	private static final Logger logger = LoggerFactory.getLogger(ServletApiHook.class);
+	private static final Logger LOG = LoggerFactory.getLogger(ServletApiHook.class);
 	private final Method getHeaderMethod;
 	private final Provider<ExecutionParams> executionParamsProvider;
 
@@ -70,7 +70,7 @@ public class ServletApiHook extends AbstractHook {
 					execParams.setRequestId(UUID.fromString(requestId));
 				}
 			} catch (Exception ex) {
-				logger.error(ex.getMessage(), ex);
+				LOG.error(ex.getMessage(), ex);
 			}
 		}
 	}

@@ -17,7 +17,7 @@ package com.mgmtp.perfload.agent.hook;
 
 /**
  * Hook for timing methods.
- * 
+ *
  * @author rnaegele
  */
 public abstract class AbstractHook implements Hook {

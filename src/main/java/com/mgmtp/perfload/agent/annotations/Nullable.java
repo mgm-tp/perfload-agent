@@ -15,11 +15,11 @@
  */
 package com.mgmtp.perfload.agent.annotations;
 
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * Annotation that can be used to annotate a constructor parameters in order to allow {@code null}

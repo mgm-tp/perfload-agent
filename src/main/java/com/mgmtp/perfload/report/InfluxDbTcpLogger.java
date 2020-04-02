@@ -19,10 +19,14 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.influxdb.BatchOptions;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A simple file logger.
@@ -31,8 +35,9 @@ import org.influxdb.InfluxDBFactory;
  */
 public class InfluxDbTcpLogger implements SimpleLogger {
 
-	InfluxDB influxDB;
+	private InfluxDB influxDb;
 	private final URI uri;
+	private final static Logger LOG = LoggerFactory.getLogger(InfluxDbTcpLogger.class);
 
 	/**
 	 * @param uri the log file
@@ -46,21 +51,21 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 	 */
 	@Override
 	public void open() {
-		String userInfo = uri.getUserInfo();
-		if (!userInfo.contains(":")) {
-			try {
-				userInfo = new String(Base64.getDecoder().decode(userInfo), StandardCharsets.UTF_8);
-			} catch (IllegalArgumentException ignored) {
-			}
-		}
-		String[] loginInfo = userInfo.split(":", 2);
-		if (loginInfo.length > 1) {
-			influxDB = InfluxDBFactory.connect(uri.getSchemeSpecificPart() + uri.getAuthority(), loginInfo[0], loginInfo[1]);
-		} else {
-			influxDB = InfluxDBFactory.connect(uri.getSchemeSpecificPart() + uri.getAuthority());
-		}
-		influxDB.setDatabase(uri.getPath());
-		influxDB.enableBatch(BatchOptions.DEFAULTS);
+		influxDb = Optional.of(new AuthInfo(uri))
+			.filter(AuthInfo::isValid)
+			.map(authInfo -> InfluxDBFactory.connect(getUrl(), authInfo.getUser(), authInfo.getPassword()))
+			.orElse(InfluxDBFactory.connect(getUrl()))
+			.setDatabase(getDatabase())
+			.enableBatch(BatchOptions.DEFAULTS);
+		LOG.info("Opened connection to InfluxDB URI: {}, DB: {}", getUrl(), getDatabase());
+	}
+
+	private String getUrl() {
+		return uri.getScheme() + ":" + uri.getSchemeSpecificPart() + uri.getAuthority();
+	}
+
+	private String getDatabase() {
+		return StringUtils.stripStart(uri.getPath(), "/");
 	}
 
 	/**
@@ -69,7 +74,11 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 	 */
 	@Override
 	public void writeln(final String output) {
-		influxDB.write(output);
+		if (influxDb == null) {
+			LOG.error("Connection to InfluxDB is not open.");
+		} else {
+			influxDb.write(output);
+		}
 	}
 
 	/**
@@ -77,6 +86,43 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 	 */
 	@Override
 	public void close() {
-		influxDB.close();
+		if (influxDb != null) {
+			influxDb.close();
+		}
+	}
+
+	private static class AuthInfo {
+
+		private final String user;
+		private final String password;
+
+		public AuthInfo(URI uri) {
+			String[] userPasswordPair = decodeAuthInfo(uri.getUserInfo()).split(":", 2);
+			user = userPasswordPair.length > 0 ? userPasswordPair[0] : null;
+			password = userPasswordPair.length > 1 ? userPasswordPair[1] : null;
+		}
+
+		private String decodeAuthInfo(String userInfo) {
+			if (userInfo.contains(":")) {
+				return userInfo;
+			}
+			try {
+				return new String(Base64.getDecoder().decode(userInfo), StandardCharsets.UTF_8);
+			} catch (IllegalArgumentException ignored) {
+				return userInfo;
+			}
+		}
+
+		public String getPassword() {
+			return password;
+		}
+
+		public String getUser() {
+			return user;
+		}
+
+		public boolean isValid() {
+			return StringUtils.isNoneBlank(user, password);
+		}
 	}
 }
