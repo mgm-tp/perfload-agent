@@ -45,7 +45,7 @@ dependencies {
 		exclude(module: 'junit')
 	}
 	testCompile 'org.mockito:mockito-all:1.10.19'
-	testCompile 'javax.servlet:servlet-api:2.4'
+	testCompile 'javax.servlet:javax.servlet-api:4.0.0'
 }
 
 jar {
@@ -55,7 +55,7 @@ jar {
 }
 
 shadowJar {
-	//exclude 'logback.xml'
+	exclude 'logback.xml'
 	relocate 'org.objectweb', "${project.group}.shaded.org.objectweb"
 	relocate 'org.aopalliance', "${project.group}.shaded.org.aopalliance"
 	relocate 'org.apache', "${project.group}.shaded.org.apache"
@@ -63,5 +63,7 @@ shadowJar {
 	relocate 'net.sf', "${project.group}.shaded.net.sf"
 	relocate 'ch.qos.logback', 'ch.qos.logback'
 	relocate 'org.slf4j', 'org.slf4j'
+	relocate 'javax.servlet', 'javax.servlet'
+
 }
 build.dependsOn(shadowJar)

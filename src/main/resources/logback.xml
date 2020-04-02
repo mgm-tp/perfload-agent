@@ -6,12 +6,7 @@
 		</encoder>
 	</appender>
 
-	<logger name="taskdurations" level="INFO">
-		<appender-ref ref="taskdurations" />
-	</logger>
-
 	<root level="INFO">
-		<appender-ref ref="file" />
 		<appender-ref ref="stdout" />
 	</root>
 </configuration>
