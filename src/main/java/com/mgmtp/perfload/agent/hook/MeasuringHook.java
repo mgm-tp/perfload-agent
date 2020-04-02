@@ -26,7 +26,7 @@ import com.google.common.cache.LoadingCache;
 import com.mgmtp.perfload.agent.AgentLogger;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
 import com.mgmtp.perfload.logging.ResultLogger;
-import com.mgmtp.perfload.logging.TimeInterval;
+import com.mgmtp.perfload.agent.StopWatch;
 
 /**
  * Hook for timing methods.
@@ -51,19 +51,19 @@ public class MeasuringHook extends AbstractHook {
 	}
 
 	/**
-	 * Starts timing the method pushing a {@link TimeInterval} on the internal thread-local
+	 * Starts timing the method pushing a {@link StopWatch} on the internal thread-local
 	 * measurement stack.
 	 */
 	@Override
 	public void start(final Object source, final String fullyQualifiedMethodName, final Object[] args) {
-		TimeInterval ti = new TimeInterval();
+		StopWatch ti = new StopWatch();
 		Measurement measurement = new Measurement(fullyQualifiedMethodName, args, ti);
 		measurementsStack.get().push(measurement);
 		ti.start();
 	}
 
 	/**
-	 * Stop timing the method polling the {@link TimeInterval} from the internal thread-local
+	 * Stop timing the method polling the {@link StopWatch} from the internal thread-local
 	 * measurement stack.
 	 */
 	@Override
@@ -99,10 +99,10 @@ public class MeasuringHook extends AbstractHook {
 	public static class Measurement {
 
 		final String fullyQualifiedMethodName;
-		final TimeInterval ti;
+		final StopWatch ti;
 		private final Object[] args;
 
-		Measurement(final String fullyQualifiedMethodName, final Object[] args, final TimeInterval ti) {
+		Measurement(final String fullyQualifiedMethodName, final Object[] args, final StopWatch ti) {
 			this.fullyQualifiedMethodName = fullyQualifiedMethodName;
 			this.args = args;
 			this.ti = ti;

@@ -15,11 +15,11 @@
  */
 package com.mgmtp.perfload.agent.hook;
 
-import static com.mgmtp.perfload.agent.util.ClassNameUtils.computeFullyQualifiedMethodName;
+import jdk.internal.org.objectweb.asm.MethodVisitor;
+import jdk.internal.org.objectweb.asm.Type;
+import jdk.internal.org.objectweb.asm.commons.AdviceAdapter;
 
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.AdviceAdapter;
+import static com.mgmtp.perfload.agent.util.ClassNameUtils.computeFullyQualifiedMethodName;
 
 /**
  * An ASM {@link MethodVisitor} that weave the {@link HookManager} into a method's byte code.

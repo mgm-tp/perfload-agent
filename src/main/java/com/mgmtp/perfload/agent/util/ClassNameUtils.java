@@ -16,13 +16,15 @@
 package com.mgmtp.perfload.agent.util;
 
 
+import java.util.List;
+
+import org.apache.commons.lang3.text.StrBuilder;
+
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import org.apache.commons.lang3.text.StrBuilder;
-import org.objectweb.asm.Type;
 
-import java.util.List;
+import jdk.internal.org.objectweb.asm.Type;
 
 import static com.google.common.collect.FluentIterable.from;
 import static org.apache.commons.lang.StringUtils.substringAfterLast;

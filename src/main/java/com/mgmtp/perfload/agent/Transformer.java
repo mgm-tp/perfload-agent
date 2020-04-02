@@ -15,11 +15,6 @@
  */
 package com.mgmtp.perfload.agent;
 
-import static com.google.common.collect.Lists.newArrayListWithCapacity;
-import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
-import static org.apache.commons.lang3.StringUtils.substringAfterLast;
-import static org.apache.commons.lang3.StringUtils.substringBeforeLast;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
@@ -32,12 +27,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import org.apache.commons.lang3.mutable.MutableBoolean;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 
 import com.mgmtp.perfload.agent.annotations.AgentDir;
 import com.mgmtp.perfload.agent.config.Config;
@@ -45,6 +34,18 @@ import com.mgmtp.perfload.agent.config.EntryPoints;
 import com.mgmtp.perfload.agent.config.MethodInstrumentations;
 import com.mgmtp.perfload.agent.hook.MeasuringHookMethodVisitor;
 import com.mgmtp.perfload.agent.hook.ServletApiHookMethodVisitor;
+
+import jdk.internal.org.objectweb.asm.ClassReader;
+import jdk.internal.org.objectweb.asm.ClassVisitor;
+import jdk.internal.org.objectweb.asm.ClassWriter;
+import jdk.internal.org.objectweb.asm.MethodVisitor;
+import jdk.internal.org.objectweb.asm.Opcodes;
+import jdk.internal.org.objectweb.asm.Type;
+
+import static com.google.common.collect.Lists.newArrayListWithCapacity;
+import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
+import static org.apache.commons.lang3.StringUtils.substringAfterLast;
+import static org.apache.commons.lang3.StringUtils.substringBeforeLast;
 
 /**
  * @author rnaegele

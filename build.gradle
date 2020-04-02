@@ -1,0 +1,36 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+group = 'com.mgmtp.perftest.agent'
+version = '1.4.2-SNAPSHOT'
+
+description = """mgm perfLoad Agent"""
+
+sourceCompatibility = 8
+targetCompatibility = 8
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+}
+
+configurations.all {
+}
+
+repositories {
+	mavenCentral()
+	jcenter()
+}
+dependencies {
+	//compile group: 'com.mgmtp.perfload.logging', name: 'perfload-logging', version: '4.6.1'
+	compile 'commons-io:commons-io:2.6'
+	compile 'org.apache.commons:commons-lang3:3.9'
+	compile 'org.ow2.asm:asm-all:7.0'
+	compile 'com.google.inject:guice:4.2.3'
+	compile 'com.google.guava:guava:28.2-jre'
+	compile 'net.sf.json-lib:json-lib:2.4:jdk15'
+	compile 'org.influxdb:influxdb-java:2.17'
+	testCompile('org.testng:testng:7.1.0') {
+		exclude(module: 'junit')
+	}
+	testCompile 'org.mockito:mockito-all:1.10.19'
+	testCompile 'javax.servlet:servlet-api:2.4'
+}

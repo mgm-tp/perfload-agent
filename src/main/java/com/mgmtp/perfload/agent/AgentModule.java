@@ -15,10 +15,6 @@
  */
 package com.mgmtp.perfload.agent;
 
-import static com.google.common.collect.Lists.newArrayListWithCapacity;
-import static com.google.common.collect.Maps.newHashMapWithExpectedSize;
-import static com.google.common.collect.Queues.newArrayDeque;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -30,11 +26,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.inject.Singleton;
-
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
-import net.sf.json.JsonConfig;
 
 import com.google.common.base.Charsets;
 import com.google.common.cache.CacheBuilder;
@@ -55,12 +46,21 @@ import com.mgmtp.perfload.agent.config.MethodInstrumentations;
 import com.mgmtp.perfload.agent.hook.Hook;
 import com.mgmtp.perfload.agent.hook.MeasuringHook;
 import com.mgmtp.perfload.agent.hook.MeasuringHook.Measurement;
+import com.mgmtp.perfload.logging.ResultLogger;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.logging.DefaultResultLogger;
-import com.mgmtp.perfload.logging.ResultLogger;
-import com.mgmtp.perfload.logging.SimpleFileLogger;
+import com.mgmtp.perfload.logging.InfuxDbResultLogger;
+import com.mgmtp.perfload.logging.InfluxDbTcpLogger;
 import com.mgmtp.perfload.logging.SimpleLogger;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import net.sf.json.JSONSerializer;
+import net.sf.json.JsonConfig;
+
+import static com.google.common.collect.Lists.newArrayListWithCapacity;
+import static com.google.common.collect.Maps.newHashMapWithExpectedSize;
+import static com.google.common.collect.Queues.newArrayDeque;
 
 /**
  * Guice module for the agent.
@@ -103,7 +103,7 @@ public class AgentModule extends AbstractModule {
 	@Singleton
 	SimpleLogger provideMeasuringLogger() {
 		File measuringLog = new File(agentDir, String.format("perfload-agent-measuring-%d.log", pid));
-		final SimpleFileLogger logger = new SimpleFileLogger(measuringLog);
+		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(measuringLog);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
 			public void run() {
@@ -201,11 +201,12 @@ public class AgentModule extends AbstractModule {
 		}
 		final InetAddress localhost = tmpLocalhost;
 
-		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultLogger>() {
+		CacheLoader<String, ResultLogger> loader = new CacheLoader<String, ResultLogger>() {
 			@Override
-			public ResultLogger load(final String operation) throws Exception {
-				return new DefaultResultLogger(logger, localhost, "agent", operation, "agent", 0, 0, 0);
+			public ResultLogger load(final String operation) {
+				return new InfuxDbResultLogger(logger, localhost, "agent", operation, "agent",  measurement);
 			}
-		});
+		};
+		return CacheBuilder.newBuilder().build(loader);
 	}
 }
