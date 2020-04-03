@@ -30,7 +30,7 @@ import com.mgmtp.perfload.agent.StopWatch;
 
 public class InfluxDbResultLogger implements ResultLogger {
 
-	public static final String FAIL = "fail";
+	public static final String KO = "ko";
 	public static final String OK = "ok";
 	private final SimpleLogger logger;
 	protected final InetAddress localAddress;
@@ -80,7 +80,7 @@ public class InfluxDbResultLogger implements ResultLogger {
 		if (message == null) {
 			builder.tag("status", OK);
 		} else {
-			builder.tag("message", message).tag("status", FAIL);
+			builder.tag("message", message).tag("status", KO);
 		}
 		logger.writeln(addExtraArgs(builder, extraArgs).build().lineProtocol());
 	}

@@ -107,6 +107,17 @@ public class AgentModule extends AbstractModule {
 	}
 
 	@Provides
+	@ConfigFile
+	@Singleton
+	File provideConfigFile() {
+		File configFile = new File(agentDir, "perfload-agent.json");
+		if (!configFile.canRead()) {
+			throw new IllegalStateException("Cannot read agent config file: " + configFile.getAbsolutePath());
+		}
+		return configFile;
+	}
+
+	@Provides
 	@Singleton
 	SimpleLogger provideMeasuringLogger() {
 		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
@@ -116,14 +127,16 @@ public class AgentModule extends AbstractModule {
 	}
 
 	@Provides
-	@ConfigFile
 	@Singleton
-	File provideConfigFile() {
-		File configFile = new File(agentDir, "perfload-agent.json");
-		if (!configFile.canRead()) {
-			throw new IllegalStateException("Cannot read agent config file: " + configFile.getAbsolutePath());
-		}
-		return configFile;
+	LoadingCache<String, ResultLogger> provideResultLoggerCache(final SimpleLogger measureLogger) {
+		final InetAddress localhost = getInetAddress();
+		measureLogger.open();
+		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultLogger>() {
+			@Override
+			public ResultLogger load(@Nonnull String operation) {
+				return new InfluxDbResultLogger(measureLogger, localhost, AGENT, operation, pid, AGENT, measurement);
+			}
+		});
 	}
 
 	@Provides
@@ -172,18 +185,6 @@ public class AgentModule extends AbstractModule {
 			LOG.error("provideGetHeaderMethod: ", ex);
 			return null;
 		}
-	}
-
-	@Provides
-	@Singleton
-	LoadingCache<String, ResultLogger> provideResultLoggerCache(final SimpleLogger measureLogger) {
-		final InetAddress localhost = getInetAddress();
-		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultLogger>() {
-			@Override
-			public ResultLogger load(@Nonnull String operation) {
-				return new InfluxDbResultLogger(measureLogger, localhost, AGENT, operation, pid, AGENT, measurement);
-			}
-		});
 	}
 
 	private InetAddress getInetAddress() {

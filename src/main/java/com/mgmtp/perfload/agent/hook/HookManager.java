@@ -25,6 +25,7 @@ import com.mgmtp.perfload.agent.annotations.ServletApi;
  *
  * @author rnaegele
  */
+@SuppressWarnings("ALL")
 public class HookManager {
 
 	private static final Key<Hook> MEASURING_KEY = Key.get(Hook.class, Measuring.class);
