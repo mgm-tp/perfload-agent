@@ -122,7 +122,6 @@ public class AgentModule extends AbstractModule {
 	SimpleLogger provideMeasuringLogger() {
 		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
 		Runtime.getRuntime().addShutdownHook(new Thread(logger::close));
-		logger.open();
 		return logger;
 	}
 

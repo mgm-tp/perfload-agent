@@ -51,6 +51,7 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 	 */
 	@Override
 	public void open() {
+		LOG.info("Connecting to InfluxDB URI: {}, DB: {}", getUrl(), getDatabase());
 		influxDb = Optional.of(new AuthInfo(uri))
 			.filter(AuthInfo::isValid)
 			.map(authInfo -> InfluxDBFactory.connect(getUrl(), authInfo.getUser(), authInfo.getPassword()))
@@ -61,7 +62,7 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 	}
 
 	private String getUrl() {
-		return uri.getScheme() + ":" + uri.getSchemeSpecificPart() + uri.getAuthority();
+		return uri.getScheme() + "://" + uri.getAuthority() + "/";
 	}
 
 	private String getDatabase() {
@@ -97,12 +98,16 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 		private final String password;
 
 		public AuthInfo(URI uri) {
-			String[] userPasswordPair = decodeAuthInfo(uri.getUserInfo()).split(":", 2);
+			String userInfo = uri.getUserInfo();
+			String[] userPasswordPair = decodeAuthInfo(userInfo).split(":", 2);
 			user = userPasswordPair.length > 0 ? userPasswordPair[0] : null;
 			password = userPasswordPair.length > 1 ? userPasswordPair[1] : null;
 		}
 
 		private String decodeAuthInfo(String userInfo) {
+			if (userInfo == null) {
+				return "";
+			}
 			if (userInfo.contains(":")) {
 				return userInfo;
 			}
