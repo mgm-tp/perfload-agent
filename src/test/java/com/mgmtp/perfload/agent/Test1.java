@@ -13,33 +13,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mgmtp.perfload.agent.config;
-
-import java.util.List;
+package com.mgmtp.perfload.agent;
 
 /**
  * @author rnaegele
  */
-public class EntryPoints {
+public class Test1 {
 
-	private final List<String> servlets;
-	private final List<String> filters;
+	private final boolean flag;
 
-	public EntryPoints(final List<String> servlets, final List<String> filters) {
-		this.servlets = servlets;
-		this.filters = filters;
+	static {
+		System.out.println("static1");
 	}
 
-	public boolean hasFilter(final String fqcn) {
-		return filters.contains(fqcn);
+	static {
+		System.out.println("static2");
 	}
 
-	public boolean hasServlet(final String fqcn) {
-		return servlets.contains(fqcn);
+	public Test1(final Boolean flag) {
+		this.flag = flag;
 	}
 
-	@Override
-	public String toString() {
-		return String.format("EntryPoints{servlets=%s, filters=%s}", servlets, filters);
+	public void check() {
+		if (flag) {
+			throw new IllegalStateException("foo");
+		}
+
+		System.out.println("OK");
+	}
+
+	public static void checkI(final int i) {
+		System.out.println(i);
+	}
+
+	public void checkLL(final long l1, final long l2) {
+		System.out.println(l1 + "-" + l2);
+	}
+
+	public static void main(final String[] args) {
+		checkI(42);
+		Test1 test = new Test1(Boolean.FALSE);
+		test.check();
+		test.checkLL(1L, 2L);
 	}
 }

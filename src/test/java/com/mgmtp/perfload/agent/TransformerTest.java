@@ -62,6 +62,7 @@ import static org.testng.Assert.fail;
 /**
  * @author rnaegele
  */
+@Test
 public class TransformerTest {
 
 	public static final String OK_LINE_PATTERN = ".*^jmeter,executionId=%s,layer=agent,localAddress=.*,operation=%s,pid=%d,requestId=%s,status=" + OK + ",target=agent,type=AGENT,uri=%s,uriAlias=%s ti1=\\d+i,ti2=\\d+i \\d+$.*";

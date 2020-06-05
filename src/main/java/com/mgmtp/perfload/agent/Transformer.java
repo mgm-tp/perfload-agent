@@ -19,8 +19,10 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -42,7 +44,6 @@ import com.mgmtp.perfload.agent.config.MethodInstrumentations;
 import com.mgmtp.perfload.agent.hook.MeasuringHookMethodVisitor;
 import com.mgmtp.perfload.agent.hook.ServletApiHookMethodVisitor;
 
-import static com.google.common.collect.Lists.newArrayListWithCapacity;
 import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
 import static org.apache.commons.lang3.StringUtils.substringAfterLast;
 import static org.apache.commons.lang3.StringUtils.substringBeforeLast;
@@ -62,6 +63,7 @@ public class Transformer implements ClassFileTransformer {
 
 	@Inject
 	public Transformer(final Config config, @AgentDir final File agentDir) {
+		LOG.info("AgentDir: {}", agentDir);
 		this.config = config;
 		this.agentDir = agentDir;
 	}
@@ -72,10 +74,10 @@ public class Transformer implements ClassFileTransformer {
 
 		final String classNameWithDots = className.replace('/', '.');
 		EntryPoints entryPoints = config.getEntryPoints();
-
-		final Map<String, MethodInstrumentations> methodsConfig = config.getInstrumentations().get(classNameWithDots);
 		final boolean isFilter = entryPoints.hasFilter(classNameWithDots);
 		final boolean isServlet = entryPoints.hasServlet(classNameWithDots);
+
+		final Map<String, MethodInstrumentations> methodsConfig = config.getInstrumentations().get(classNameWithDots);
 
 		if (methodsConfig == null && !isFilter && !isServlet) {
 			// no instrumentation configured for this class
@@ -92,48 +94,30 @@ public class Transformer implements ClassFileTransformer {
 		ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
 		ClassVisitor cv = new ClassVisitor(Opcodes.ASM4, cw) {
 			@Override
-			public MethodVisitor visitMethod(final int access, final String name, final String desc, final String signature,
+			public MethodVisitor visitMethod(final int access, final String name, final String descriptor, final String signature,
 				final String[] exceptions) {
-				MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+				MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 				if (mv != null) {
 					if (isFilter && "doFilter".equals(name)
-						|| isServlet && "service".equals(name) && SERVLET_SERVICE_DESC.equals(desc)) {
-						mv = createServletApiHookVisitor(access, name, desc, mv);
+						|| isServlet && "service".equals(name) && SERVLET_SERVICE_DESC.equals(descriptor)) {
+						mv = createServletApiHookVisitor(access, name, descriptor, mv);
 					}
 					if (methodsConfig != null) {
 						MethodInstrumentations methodInstrumentations = methodsConfig.get(name);
 						if (methodInstrumentations != null) {
-							mv = createMeasuringHookVisitor(access, name, desc, mv, methodInstrumentations);
+							mv = createMeasuringHookVisitor(access, name, descriptor, mv, methodInstrumentations);
 						}
 					}
 				}
 				return mv;
 			}
 
-			private MethodVisitor createMeasuringHookVisitor(final int access, final String methodName, final String desc,
+			private MethodVisitor createMeasuringHookVisitor(final int access, final String methodName, final String methodDescriptor,
 				final MethodVisitor mv, final MethodInstrumentations methodInstrumentations) {
-				boolean weave = false;
-				if (methodInstrumentations.isEmpty()) {
-					// no params configured, so we just weave the hook into any method with this name
-					weave = true;
-				} else {
-					// weave if params match
-					for (List<String> paramClassNames : methodInstrumentations) {
-						Type[] argumentTypes = Type.getArgumentTypes(desc);
-						List<String> classNames = newArrayListWithCapacity(argumentTypes.length);
-						for (Type argumentType : argumentTypes) {
-							classNames.add(argumentType.getClassName());
-						}
-						if (classNames.equals(paramClassNames)) {
-							weave = true;
-							break;
-						}
-					}
-				}
-				if (weave) {
+				if (matchInstrumentation(methodDescriptor, methodInstrumentations)) {
 					LOG.info("Instrumenting method: " + classNameWithDots + "." + methodName);
 					weaveFlag.setValue(true);
-					return new MeasuringHookMethodVisitor(access, classNameWithDots, methodName, desc, mv);
+					return new MeasuringHookMethodVisitor(access, classNameWithDots, methodName, methodDescriptor, mv);
 				}
 				return mv;
 			}
@@ -152,11 +136,26 @@ public class Transformer implements ClassFileTransformer {
 		if (weaveFlag.isTrue()) {
 			byte[] transformedClassBytes = cw.toByteArray();
 			dumpTransformedClassFile(className, transformedClassBytes);
+			LOG.info("Bytecode updated: " + classNameWithDots);
 			return transformedClassBytes;
+		} else {
+			// no transformation
+			return null;
 		}
+	}
 
-		// no transformation
-		return null;
+	private boolean matchInstrumentation(String descriptor, MethodInstrumentations methodInstrumentations) {
+		if (methodInstrumentations.isEmpty()) {
+			return true;
+		}
+		for (List<String> paramClassNames : methodInstrumentations) {
+			if (Arrays.stream(Type.getArgumentTypes(descriptor))
+				.map(Type::getClassName)
+				.collect(Collectors.toList()).equals(paramClassNames)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void dumpTransformedClassFile(final String className, final byte[] transformedClassBytes) {

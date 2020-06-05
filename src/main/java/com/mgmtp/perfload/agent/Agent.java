@@ -18,7 +18,6 @@ package com.mgmtp.perfload.agent;
 import java.io.File;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
-import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,8 +26,6 @@ import javax.inject.Inject;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.inject.Injector;
 
 /**
  * Java agent main class. Called by the JVM.
@@ -57,25 +54,14 @@ public class Agent {
 	public static void premain(final String agentArgs, final Instrumentation instrumentation) {
 
 		try {
-			File agentDir = getAgentDir();
-			int pid = retrievePid();
-
 			LOG.info("Initializing perfLoad Agent...");
-
-			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir,pid));
-			injector.getInstance(Agent.class).addTransformer(instrumentation);
+			File agentDir = FileUtils.toFile(Agent.class.getProtectionDomain().getCodeSource().getLocation()).getParentFile();
+			InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, retrievePid()))
+				.getInstance(Agent.class)
+				.addTransformer(instrumentation);
 		} catch (Exception ex) {
-			ex.printStackTrace();
-			if (LOG != null) {
-				LOG.info("Error initializing perfLoad Agent.", ex);
-			}
+			LOG.info("Error initializing perfLoad Agent.", ex);
 		}
-	}
-
-	private static File getAgentDir() {
-		URL location = Agent.class.getProtectionDomain().getCodeSource().getLocation();
-		File jarFile = FileUtils.toFile(location);
-		return jarFile.getParentFile();
 	}
 
 	static int retrievePid() {
@@ -86,8 +72,7 @@ public class Agent {
 			Matcher matcher = Pattern.compile("\\d*").matcher(jvmName);
 			return matcher.find() ? Integer.parseInt(matcher.group()) : -1;
 		} catch (Exception ex) {
-			System.err.println("Error retrieving process id.");
-			ex.printStackTrace();
+			LOG.warn("Error retrieving process id.", ex);
 			return -1;
 		}
 	}

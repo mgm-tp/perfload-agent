@@ -1,6 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'com.github.johnrengelman.plugin-shadow'
+apply plugin: 'idea'
 
 buildscript {
 	repositories {
@@ -25,6 +26,16 @@ tasks.withType(JavaCompile) {
 configurations.all {
 }
 
+idea {
+	module {
+		// if you hate browsing Javadoc
+		downloadJavadoc = false
+
+		// and love reading sources :)
+		downloadSources = true
+	}
+}
+
 repositories {
 	mavenCentral()
 	jcenter()
@@ -33,6 +44,7 @@ dependencies {
 	compile 'commons-io:commons-io:2.6'
 	compile 'org.apache.commons:commons-lang3:3.9'
 	compile 'org.apache.commons:commons-text:1.8'
+	compile 'javax.inject:javax.inject:1'
 	compile 'org.ow2.asm:asm:7.0'
 	compile 'org.ow2.asm:asm-commons:7.0'
 	compile 'com.google.inject:guice:4.2.3'
@@ -42,7 +54,7 @@ dependencies {
 	compile 'org.slf4j:slf4j-api:1.7.30'
 	compile 'ch.qos.logback:logback-classic:1.2.3'
 	testCompile('org.testng:testng:7.1.0') {
-		exclude(module: 'junit')
+	//	exclude(module: 'junit')
 	}
 	testCompile 'org.mockito:mockito-all:1.10.19'
 	testCompile 'javax.servlet:javax.servlet-api:4.0.0'
@@ -67,3 +79,7 @@ shadowJar {
 
 }
 build.dependsOn(shadowJar)
+
+test {
+	useTestNG()
+}

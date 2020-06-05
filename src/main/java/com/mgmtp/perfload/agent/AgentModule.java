@@ -53,8 +53,8 @@ import com.mgmtp.perfload.agent.hook.MeasuringHook;
 import com.mgmtp.perfload.agent.hook.MeasuringHook.Measurement;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.report.InfluxDbTcpLogger;
 import com.mgmtp.perfload.report.InfluxDbResultLogger;
+import com.mgmtp.perfload.report.InfluxDbTcpLogger;
 import com.mgmtp.perfload.report.ResultLogger;
 import com.mgmtp.perfload.report.SimpleLogger;
 
@@ -81,7 +81,14 @@ public class AgentModule extends AbstractModule {
 	private final URI influxUri;
 	private final static Logger LOG = LoggerFactory.getLogger(AgentModule.class);
 
-	public AgentModule(final File agentDir, int pid) {
+	private static final JsonConfig JSON_CONFIG = new JsonConfig();
+
+	static {
+		JSON_CONFIG.setArrayMode(JsonConfig.MODE_LIST);
+		JSON_CONFIG.setRootClass(String.class);
+	}
+
+	public AgentModule(File agentDir, int pid) {
 		this.agentDir = agentDir;
 		this.pid = pid;
 		this.influxUri = URI.create(System.getProperty("influxdb.uri", "http://localhost:8086/jmeter"));
@@ -95,6 +102,7 @@ public class AgentModule extends AbstractModule {
 		bind(Hook.class).annotatedWith(Measuring.class).to(MeasuringHook.class);
 		bind(Hook.class).annotatedWith(ServletApi.class).to(ServletApiHook.class);
 		bind(Transformer.class);
+		//noinspection PointlessBinding
 		bind(ExecutionParams.class);
 		bind(Agent.class);
 		bind(File.class).annotatedWith(AgentDir.class).toInstance(agentDir);
@@ -142,34 +150,32 @@ public class AgentModule extends AbstractModule {
 	@Singleton
 	@SuppressWarnings("unchecked")
 	Config provideConfig(@ConfigFile final File configFile) throws IOException {
+
+		LOG.info("Reading config file {}", configFile);
 		JSONObject jsonObject = JSONObject.fromObject(Files.asCharSource(configFile, Charsets.UTF_8).read());
 
-		JsonConfig entryPointsConfig = new JsonConfig();
-		entryPointsConfig.setArrayMode(JsonConfig.MODE_LIST);
-		entryPointsConfig.setRootClass(String.class);
-
 		JSONObject entryPointsObject = jsonObject.getJSONObject("entryPoints");
-		List<String> servlets = (List<String>) JSONSerializer.toJava(entryPointsObject.getJSONArray("servlets"),
-			entryPointsConfig);
-		List<String> filters = (List<String>) JSONSerializer.toJava(entryPointsObject.getJSONArray("filters"), entryPointsConfig);
+
+		List<String> servlets = (List<String>) JSONSerializer.toJava(entryPointsObject.getJSONArray("servlets"), JSON_CONFIG);
+
+		List<String> filters = (List<String>) JSONSerializer.toJava(entryPointsObject.getJSONArray("filters"), JSON_CONFIG);
 
 		JSONObject instrumentationsObject = jsonObject.getJSONObject("instrumentations");
 		Set<String> keySet = instrumentationsObject.keySet();
 
 		// instrumentations by class
 		Map<String, Map<String, MethodInstrumentations>> classInstrumentationsMap = keySet.stream()
-			.collect(toMap(className -> className, className -> getStringMethodInstrumentationsMap(entryPointsConfig, instrumentationsObject, className)));
+			.collect(toMap(className -> className, className -> getStringMethodInstrumentationsMap(instrumentationsObject.getJSONObject(className))));
 
 		return new Config(new EntryPoints(servlets, filters), classInstrumentationsMap);
 	}
 
-	private Map<String, MethodInstrumentations> getStringMethodInstrumentationsMap(JsonConfig entryPointsConfig, JSONObject instrumentationsObject, String className) {
-		JSONObject classConfig = instrumentationsObject.getJSONObject(className);
+	private Map<String, MethodInstrumentations> getStringMethodInstrumentationsMap(JSONObject classConfig) {
 		// instrumentations by method
 		return ((Set<String>) classConfig.keySet()).stream()
 			.collect(toMap(m -> m, methodName ->
 				new MethodInstrumentations(methodName, (List<List<String>>) classConfig.getJSONArray(methodName).stream()
-					.map(obj -> JSONSerializer.toJava((JSONArray) obj, entryPointsConfig))
+					.map(obj -> JSONSerializer.toJava((JSONArray) obj, JSON_CONFIG))
 					.collect(toList()))));
 	}
 
