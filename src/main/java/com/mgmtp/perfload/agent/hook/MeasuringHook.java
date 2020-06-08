@@ -76,9 +76,13 @@ public class MeasuringHook extends AbstractHook {
 					.orElse(null);
 				ExecutionParams executionParams = executionParamsProvider.get();
 				LOG.debug("Logging measurement: {}({})\n{}", fullyQualifiedMethodName, args, measurement);
-				logger.log(executionParams.getOperation(), errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
-					fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
-					executionParams.getRequestId());
+				try {
+					logger.log(executionParams.getOperation(), errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
+						fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
+						executionParams.getRequestId());
+				} catch (Exception e) {
+					LOG.error(e.getMessage(), e);
+				}
 
 				return;
 			}

@@ -19,12 +19,10 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
-import java.util.UUID;
 
 import javax.annotation.Nonnull;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.time.StopWatch;
 import org.influxdb.BatchOptions;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
@@ -37,7 +35,7 @@ import com.google.common.cache.LoadingCache;
 import com.mgmtp.perfload.agent.ResultFormatterFactory;
 import com.mgmtp.perfload.agent.annotations.InfluxDbUri;
 
-public class InfluxDbTcpLogger implements ResultLogger {
+public class InfluxDbTcpLogger extends AbstractThreadedLogger {
 
 	private final InfluxDB influxDb;
 	private final static Logger LOG = LoggerFactory.getLogger(InfluxDbTcpLogger.class);
@@ -45,7 +43,14 @@ public class InfluxDbTcpLogger implements ResultLogger {
 	private final ResultFormatterFactory formatterFactory;
 
 	public InfluxDbTcpLogger(ResultFormatterFactory formatterFactory, @InfluxDbUri URI uri) {
+		super();
 		this.formatterFactory = formatterFactory;
+		influxDb = connect(uri);
+		Runtime.getRuntime().addShutdownHook(new Thread(this::close));
+	}
+
+	protected InfluxDB connect(URI uri) {
+		final InfluxDB influxDb;
 		String url = uri.getScheme() + "://" + uri.getAuthority() + "/";
 		String database = StringUtils.stripStart(uri.getPath(), "/");
 		LOG.info("Connecting to InfluxDB URI: {}, DB: {}", url, database);
@@ -56,27 +61,28 @@ public class InfluxDbTcpLogger implements ResultLogger {
 			.setDatabase(database)
 			.enableBatch(BatchOptions.DEFAULTS);
 		LOG.info("Opened connection to InfluxDB URI: {}, DB: {}", url, database);
-		Runtime.getRuntime().addShutdownHook(new Thread(this::close));
+		return influxDb;
 	}
 
-	public void close() {
+	@Override
+	protected void processLog(ResultObject r) {
+		if (influxDb == null) {
+			LOG.error("Connection to InfluxDB is not open.");
+		} else {
+			influxDb.write(getOrCreateFormatterCache().getUnchecked(r.getOperation() == null ? "unknown" : r.getOperation())
+				.formatResult(r.getErrorMessage(), r.getTimestamp(), r.getTi1(), r.getTi2(), r.getType(),
+					r.getUri(), r.getUriAlias(), r.getExecutionId(), r.getRequestId(), r.getExtraArgs()));
+		}
+	}
+
+	public void close()  {
+		shutdown();
 		if (influxDb != null) {
 			influxDb.close();
 		}
 	}
 
-	@Override
-	public void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri, String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
-		if (influxDb == null) {
-			LOG.error("Connection to InfluxDB is not open.");
-		} else {
-			influxDb.write(getOrCreateFormatterCache().getUnchecked(operation == null ? "unknown" : operation)
-				.formatResult(errorMessage, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs));
-		}
-
-	}
-
-	private LoadingCache<String, ResultFormatter> getOrCreateFormatterCache() {
+	protected LoadingCache<String, ResultFormatter> getOrCreateFormatterCache() {
 		if (formatterCache.get() == null) {
 			this.formatterCache.set(CacheBuilder.newBuilder().build(new CacheLoader<String, ResultFormatter>() {
 				@Override
@@ -126,4 +132,5 @@ public class InfluxDbTcpLogger implements ResultLogger {
 			return StringUtils.isNoneBlank(user, password);
 		}
 	}
+
 }

@@ -20,13 +20,13 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -37,9 +37,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang3.time.StopWatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.influxdb.InfluxDB;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -52,6 +50,7 @@ import com.mgmtp.perfload.agent.annotations.ConfigFile;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ClassNameUtils;
 import com.mgmtp.perfload.report.InfluxDbResultFormatter;
+import com.mgmtp.perfload.report.InfluxDbTcpLogger;
 import com.mgmtp.perfload.report.ResultLogger;
 
 import static com.mgmtp.perfload.report.InfluxDbResultFormatter.KO;
@@ -77,8 +76,6 @@ public class TransformerTest {
 	@Inject
 	private Transformer transformer;
 
-	private final TestResultLogger testLogger = new TestResultLogger();
-
 	private Class<?> testClass;
 	private Class<?> filterClass;
 	private Class<?> servletClass;
@@ -88,9 +85,13 @@ public class TransformerTest {
 	private UUID reqId;
 	private int pid;
 
-	private static final Logger LOG = LoggerFactory.getLogger(TransformerTest.class);
+	private final InetAddress localHost = InetAddress.getLocalHost();
+
+	private final TestResultLogger testLogger = new TestResultLogger((operation) ->
+		new InfluxDbResultFormatter(localHost, "agent", operation, pid, "agent", "jmeter"), null);
 
 	public TransformerTest() throws UnknownHostException {
+		super();
 	}
 
 	@BeforeClass
@@ -143,10 +144,11 @@ public class TransformerTest {
 
 		List<String> measuringLogContents = testLogger.getResults();
 		assertEquals(measuringLogContents.size(), 4);
-		assertMatches(measuringLogContents.get(0), KO_LINE_PATTERN, null, "foo", "unknown", pid, null, "c.m.p.a.Test.check\\(\\)", "c.m.p.a.Test.check\\(\\)");
-		assertMatches(measuringLogContents.get(1), OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.checkI\\(int\\)", "c.m.p.a.Test.checkI\\(int\\)");
-		assertMatches(measuringLogContents.get(2), OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)", "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)");
-		assertMatches(measuringLogContents.get(3), OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.check\\(\\)", "c.m.p.a.Test.check\\(\\)");
+		String result = String.join("\n", measuringLogContents);
+		assertMatches(result, KO_LINE_PATTERN, null, "foo", "unknown", pid, null, "c.m.p.a.Test.check\\(\\)", "c.m.p.a.Test.check\\(\\)");
+		assertMatches(result, OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.checkI\\(int\\)", "c.m.p.a.Test.checkI\\(int\\)");
+		assertMatches(result, OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)", "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)");
+		assertMatches(result, OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.check\\(\\)", "c.m.p.a.Test.check\\(\\)");
 	}
 
 	@Test
@@ -219,25 +221,29 @@ public class TransformerTest {
 		return loader.loadClass(fqcn);
 	}
 
-	private class TestResultLogger implements ResultLogger {
-		private final List<String> results = new ArrayList<>();
-		Map<String, InfluxDbResultFormatter> formatter = new HashMap<>();
+	private static class TestResultLogger extends InfluxDbTcpLogger {
+		private final List<String> results = Collections.synchronizedList(new ArrayList<>());
 
-		public List<String> getResults() {
+		public TestResultLogger(ResultFormatterFactory formatterFactory, URI uri) {
+			super(formatterFactory, uri);
+		}
+
+		@Override
+		protected InfluxDB connect(URI uri) {
+			return null;
+		}
+
+		public List<String> getResults() throws InterruptedException {
+			flush();
 			return results;
 		}
 
 		@Override
-		public void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri, String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
-			results.add(formatter.computeIfAbsent(operation == null ? "unknown" : operation,
-				op -> {
-					try {
-						return new InfluxDbResultFormatter(InetAddress.getLocalHost(), "agent", op, pid, "agent", "jmeter");
-					} catch (UnknownHostException e) {
-						throw new RuntimeException(e);
-					}
-				})
-				.formatResult(errorMessage, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs));
+		protected void processLog(ResultObject r) {
+			results.add(getOrCreateFormatterCache().getUnchecked(r.getOperation() == null ? "unknown" : r.getOperation())
+				.formatResult(r.getErrorMessage(), r.getTimestamp(), r.getTi1(), r.getTi2(), r.getType(),
+					r.getUri(), r.getUriAlias(), r.getExecutionId(), r.getRequestId(), r.getExtraArgs()));
+
 		}
 	}
 }

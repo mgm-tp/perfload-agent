@@ -49,24 +49,27 @@ public class InfluxDbResultFormatter implements ResultFormatter {
 	@Override
 	public String formatResult(String message, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
 		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
-
 		Point.Builder builder = this.builder.get();
-		builder
-			.time(timestamp, TimeUnit.MILLISECONDS)
-			.tag("type", type)
-			.tag("uri", uri)
-			.tag("uriAlias", uriAlias)
-			.tag("executionId", String.valueOf(executionId))
-			.tag("requestId", String.valueOf(requestId))
-			.tag(extraArgsToMap(extraArgs))
-			.addField("ti1", ti1.getNanoTime())
-			.addField("ti2", ti2.getNanoTime());
-		if (message == null) {
-			builder.tag("status", OK);
-		} else {
-			builder.tag("message", message).tag("status", KO);
+		try {
+			builder
+				.time(timestamp, TimeUnit.MILLISECONDS)
+				.tag("type", type)
+				.tag("uri", uri)
+				.tag("uriAlias", uriAlias)
+				.tag("executionId", String.valueOf(executionId))
+				.tag("requestId", String.valueOf(requestId))
+				.tag(extraArgsToMap(extraArgs))
+				.addField("ti1", ti1.getNanoTime())
+				.addField("ti2", ti2.getNanoTime());
+			if (message == null) {
+				builder.tag("status", OK);
+			} else {
+				builder.tag("message", message).tag("status", KO);
+			}
+			return builder.build().lineProtocol();
+		} catch (NullPointerException e) {
+			throw e;
 		}
-		return builder.build().lineProtocol();
 	}
 
 	private Map<String, String> extraArgsToMap(Object[] extraArgs) {

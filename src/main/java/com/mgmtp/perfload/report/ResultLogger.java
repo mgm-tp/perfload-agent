@@ -29,7 +29,7 @@ public interface ResultLogger {
 	/**
 	 * Writes the output to logger.
 	 */
-	void log(String operation,String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
-		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs);
+	void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) throws Exception;
 
 }
