@@ -19,10 +19,14 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -33,6 +37,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
@@ -46,7 +51,8 @@ import com.google.inject.util.Modules;
 import com.mgmtp.perfload.agent.annotations.ConfigFile;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ClassNameUtils;
-import com.mgmtp.perfload.report.SimpleLogger;
+import com.mgmtp.perfload.report.InfluxDbResultFormatter;
+import com.mgmtp.perfload.report.ResultLogger;
 
 import static com.mgmtp.perfload.report.InfluxDbResultFormatter.KO;
 import static com.mgmtp.perfload.report.InfluxDbResultFormatter.OK;
@@ -71,7 +77,7 @@ public class TransformerTest {
 	@Inject
 	private Transformer transformer;
 
-	private final TestSimpleLogger testLogger = new TestSimpleLogger();
+	private final TestResultLogger testLogger = new TestResultLogger();
 
 	private Class<?> testClass;
 	private Class<?> filterClass;
@@ -84,6 +90,9 @@ public class TransformerTest {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TransformerTest.class);
 
+	public TransformerTest() throws UnknownHostException {
+	}
+
 	@BeforeClass
 	public void init() throws IOException, ClassNotFoundException {
 		final File agentDir = new File("build");
@@ -95,7 +104,7 @@ public class TransformerTest {
 					@Override
 					protected void configure() {
 						bind(File.class).annotatedWith(ConfigFile.class).toInstance(new File("src/test/resources/perfload-agent.json"));
-						bind(SimpleLogger.class).toInstance(testLogger);
+						bind(ResultLogger.class).toInstance(testLogger);
 					}
 				}));
 		injector.injectMembers(this);
@@ -210,29 +219,25 @@ public class TransformerTest {
 		return loader.loadClass(fqcn);
 	}
 
-	private static class TestSimpleLogger implements SimpleLogger {
-
-		private List<String> results;
-
-		@Override
-		public void open() {
-			LOG.info("OPEN log");
-			results = new ArrayList<>();
-		}
-
-		@Override
-		public void writeln(String output) {
-			LOG.info("WRITE log: {}", output);
-			results.add(output);
-		}
-
-		@Override
-		public void close() {
-			LOG.info("CLOSING log");
-		}
+	private class TestResultLogger implements ResultLogger {
+		private final List<String> results = new ArrayList<>();
+		Map<String, InfluxDbResultFormatter> formatter = new HashMap<>();
 
 		public List<String> getResults() {
 			return results;
+		}
+
+		@Override
+		public void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri, String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
+			results.add(formatter.computeIfAbsent(operation == null ? "unknown" : operation,
+				op -> {
+					try {
+						return new InfluxDbResultFormatter(InetAddress.getLocalHost(), "agent", op, pid, "agent", "jmeter");
+					} catch (UnknownHostException e) {
+						throw new RuntimeException(e);
+					}
+				})
+				.formatResult(errorMessage, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs));
 		}
 	}
 }

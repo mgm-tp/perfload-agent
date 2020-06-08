@@ -24,23 +24,21 @@ import java.net.UnknownHostException;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import javax.annotation.Nonnull;
 import javax.inject.Singleton;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.io.Files;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.mgmtp.perfload.agent.annotations.AgentDir;
 import com.mgmtp.perfload.agent.annotations.ConfigFile;
+import com.mgmtp.perfload.agent.annotations.InfluxDbUri;
 import com.mgmtp.perfload.agent.annotations.Measuring;
 import com.mgmtp.perfload.agent.annotations.ServletApi;
 import com.mgmtp.perfload.agent.annotations.ThreadScope;
@@ -55,8 +53,7 @@ import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
 import com.mgmtp.perfload.report.InfluxDbResultFormatter;
 import com.mgmtp.perfload.report.InfluxDbTcpLogger;
-import com.mgmtp.perfload.report.ResultFormatter;
-import com.mgmtp.perfload.report.SimpleLogger;
+import com.mgmtp.perfload.report.ResultLogger;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -102,39 +99,14 @@ public class AgentModule extends AbstractModule {
 		bindScope(ThreadScoped.class, new ThreadScope());
 		bind(Hook.class).annotatedWith(Measuring.class).to(MeasuringHook.class);
 		bind(Hook.class).annotatedWith(ServletApi.class).to(ServletApiHook.class);
+		bind(URI.class).annotatedWith(InfluxDbUri.class).toInstance(influxUri);
+		bind(ResultLogger.class).toInstance(new InfluxDbTcpLogger((operation) ->
+			new InfluxDbResultFormatter(getInetAddress(), AGENT, operation, pid, AGENT, measurement), influxUri));
 		bind(Transformer.class);
 		//noinspection PointlessBinding
 		bind(ExecutionParams.class);
 		bind(Agent.class);
 		bind(File.class).annotatedWith(AgentDir.class).toInstance(agentDir);
-	}
-
-	@Provides
-	@Singleton
-	private LoadingCache<String, ResultFormatter> provideLoggerCache(ResultLoggerFactory resultLoggerFactory) {
-		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultFormatter>() {
-			@Override
-			public ResultFormatter load(@Nonnull String operation) {
-				return resultLoggerFactory.createLogger(operation);
-			}
-		});
-	}
-
-	@Provides
-	protected ResultLoggerFactory provideResultLoggerFactory(SimpleLogger measuringLogger) {
-		return (operation) ->
-		{
-			measuringLogger.open();
-			return new InfluxDbResultFormatter(measuringLogger, getInetAddress(), AGENT, operation, pid, AGENT, measurement);
-		};
-	}
-
-	@Provides
-	@Singleton
-	protected SimpleLogger createSimpleLogger() {
-		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
-		Runtime.getRuntime().addShutdownHook(new Thread(logger::close));
-		return logger;
 	}
 
 	@Provides
@@ -148,10 +120,9 @@ public class AgentModule extends AbstractModule {
 	@Singleton
 	File provideConfigFile() {
 		File configFile = new File(agentDir, "perfload-agent.json");
-		if (!configFile.canRead()) {
-			throw new IllegalStateException("Cannot read agent config file: " + configFile.getAbsolutePath());
-		}
-		return configFile;
+		return Optional.of(configFile)
+			.filter(File::canRead)
+			.orElseThrow(() -> new IllegalStateException("Cannot read agent config file: " + configFile.getAbsolutePath()));
 	}
 
 	@Provides

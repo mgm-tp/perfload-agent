@@ -15,25 +15,21 @@
  */
 package com.mgmtp.perfload.report;
 
+import java.util.UUID;
+
+import org.apache.commons.lang3.time.StopWatch;
+
 /**
  * Interface for perfLoad's logger for measurings.
  *
  * @author rnaegele
  */
-public interface SimpleLogger {
-
-	/**
-	 * Opens the logger.
-	 */
-	void open();
+public interface ResultLogger {
 
 	/**
 	 * Writes the output to logger.
 	 */
-	void writeln(final String output);
+	void log(String operation,String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs);
 
-	/**
-	 * Closes logger.
-	 */
-	void close();
 }

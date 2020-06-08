@@ -34,47 +34,28 @@ public class InfluxDbResultFormatter implements ResultFormatter {
 
 	public static final String KO = "ko";
 	public static final String OK = "ok";
-	private final SimpleLogger logger;
-	protected final InetAddress localAddress;
-	protected final String layer;
-	protected final String operation;
-	private final int pid;
-	protected final String target;
-	private final String measurement;
+	private final ThreadLocal<Point.Builder> builder = new ThreadLocal<>();
 
-	/**
-	 * @param logger the underlying logger to use
-	 * @param localAddress the local address of the client
-	 * @param layer some identifier for the layer in which the result is logged (e. g. client, server, ...)
-	 * @param pid
-	 */
-	public InfluxDbResultFormatter(SimpleLogger logger, InetAddress localAddress, String layer, String operation, int pid, String target, String measurement) {
-		this.logger = logger;
-		this.localAddress = localAddress;
-		this.layer = layer;
-		this.operation = operation;
-		this.pid = pid;
-		this.target = target;
-		this.measurement = measurement;
-	}
-
-	/**
-	 * {@inheritDoc} See class comment above for details.
-	 */
-	@Override
-	public void formatResult(String message, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
-		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
-
-		Point.Builder builder = Point.measurement(measurement)
-			.time(timestamp, TimeUnit.MILLISECONDS)
+	public InfluxDbResultFormatter(InetAddress localAddress, String layer, String operation, int pid, String target, String measurement) {
+		builder.set(Point.measurement(measurement)
 			.tag("operation", operation)
 			.tag("target", target)
+			.tag("pid", String.valueOf(pid))
+			.tag("localAddress", localAddress.toString())
+			.tag("layer", layer))
+		;
+	}
+
+	@Override
+	public String formatResult(String message, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
+
+		Point.Builder builder = this.builder.get();
+		builder
+			.time(timestamp, TimeUnit.MILLISECONDS)
 			.tag("type", type)
 			.tag("uri", uri)
-			.tag("pid", String.valueOf(pid))
 			.tag("uriAlias", uriAlias)
-			.tag("localAddress", localAddress.toString())
-			.tag("layer", layer)
 			.tag("executionId", String.valueOf(executionId))
 			.tag("requestId", String.valueOf(requestId))
 			.tag(extraArgsToMap(extraArgs))
@@ -85,7 +66,7 @@ public class InfluxDbResultFormatter implements ResultFormatter {
 		} else {
 			builder.tag("message", message).tag("status", KO);
 		}
-		logger.writeln(builder.build().lineProtocol());
+		return builder.build().lineProtocol();
 	}
 
 	private Map<String, String> extraArgsToMap(Object[] extraArgs) {

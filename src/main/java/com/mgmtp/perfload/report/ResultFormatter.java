@@ -42,7 +42,7 @@ public interface ResultFormatter {
 	 * @param requestId the request id (unique for each request)
 	 * @param extraArgs additional application-specific arguments to be logged
 	 */
-	void formatResult(String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+	String formatResult(String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
 		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs);
 
 }

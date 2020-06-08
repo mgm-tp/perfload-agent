@@ -27,9 +27,8 @@ import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.LoadingCache;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.report.ResultFormatter;
+import com.mgmtp.perfload.report.ResultLogger;
 
 /**
  * Hook for timing methods.
@@ -42,14 +41,14 @@ public class MeasuringHook extends AbstractHook {
 	private final Provider<Deque<Measurement>> measurementsStack;
 	private static final Logger LOG = LoggerFactory.getLogger(MeasuringHook.class);
 	private final Provider<ExecutionParams> executionParamsProvider;
-	private final LoadingCache<String, ResultFormatter> resultLoggerCache;
+	private final ResultLogger logger;
 
 	@Inject
 	MeasuringHook(Provider<Deque<Measurement>> measurementsStack, Provider<ExecutionParams> executionParamsProvider,
-		LoadingCache<String, ResultFormatter> resultLoggerCache) {
+		ResultLogger logger) {
 		this.measurementsStack = measurementsStack;
 		this.executionParamsProvider = executionParamsProvider;
-		this.resultLoggerCache = resultLoggerCache;
+		this.logger = logger;
 	}
 
 	/**
@@ -77,12 +76,9 @@ public class MeasuringHook extends AbstractHook {
 					.map(Throwable::getMessage)
 					.orElse(null);
 				ExecutionParams executionParams = executionParamsProvider.get();
-				String operation = executionParams.getOperation();
-
-				resultLoggerCache.getUnchecked(operation != null ? operation : "unknown")
-					.formatResult(errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
-						fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
-						executionParams.getRequestId());
+				logger.log(executionParams.getOperation(), errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
+					fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
+					executionParams.getRequestId());
 
 				return;
 			}
