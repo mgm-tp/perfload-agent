@@ -17,14 +17,14 @@ package com.mgmtp.perfload.report;
 
 import java.util.UUID;
 
-import com.mgmtp.perfload.agent.StopWatch;
+import org.apache.commons.lang3.time.StopWatch;
 
 /**
  * Interface for logging test results.
  *
  * @author rnaegele
  */
-public interface ResultLogger {
+public interface ResultFormatter {
 
 	/**
 	 * Logs a test result.
@@ -42,7 +42,7 @@ public interface ResultLogger {
 	 * @param requestId the request id (unique for each request)
 	 * @param extraArgs additional application-specific arguments to be logged
 	 */
-	void logResult(String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+	void formatResult(String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
 		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs);
 
 }

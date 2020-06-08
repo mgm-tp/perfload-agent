@@ -56,6 +56,7 @@ public class Transformer implements ClassFileTransformer {
 
 	// method descriptor for servlets because service method is overloaded
 	private static final String SERVLET_SERVICE_DESC = "(Ljavax/servlet/http/HttpServletRequest;Ljavax/servlet/http/HttpServletResponse;)V";
+	public static final int OPCODES = Opcodes.ASM5;
 
 	private final Config config;
 	private static final Logger LOG = LoggerFactory.getLogger(Transformer.class);
@@ -92,7 +93,7 @@ public class Transformer implements ClassFileTransformer {
 
 		ClassReader cr = new ClassReader(classfileBuffer);
 		ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
-		ClassVisitor cv = new ClassVisitor(Opcodes.ASM4, cw) {
+		ClassVisitor cv = new ClassVisitor(OPCODES, cw) {
 			@Override
 			public MethodVisitor visitMethod(final int access, final String name, final String descriptor, final String signature,
 				final String[] exceptions) {

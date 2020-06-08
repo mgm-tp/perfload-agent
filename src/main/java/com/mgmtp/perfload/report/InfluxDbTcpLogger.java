@@ -15,7 +15,6 @@
  */
 package com.mgmtp.perfload.report;
 
-import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -35,44 +34,30 @@ import org.slf4j.LoggerFactory;
  */
 public class InfluxDbTcpLogger implements SimpleLogger {
 
-	private InfluxDB influxDb;
-	private final URI uri;
+	private final InfluxDB influxDb;
 	private final static Logger LOG = LoggerFactory.getLogger(InfluxDbTcpLogger.class);
 
 	/**
 	 * @param uri the log file
 	 */
 	public InfluxDbTcpLogger(URI uri) {
-		this.uri = uri;
-	}
-
-	/**
-	 * Opens an auto-flushing {@link PrintWriter} to the output file using UTF-8 encoding.
-	 */
-	@Override
-	public void open() {
-		LOG.info("Connecting to InfluxDB URI: {}, DB: {}", getUrl(), getDatabase());
+		String url = uri.getScheme() + "://" + uri.getAuthority() + "/";
+		String database = StringUtils.stripStart(uri.getPath(), "/");
+		LOG.info("Connecting to InfluxDB URI: {}, DB: {}", url, database);
 		influxDb = Optional.of(new AuthInfo(uri))
 			.filter(AuthInfo::isValid)
-			.map(authInfo -> InfluxDBFactory.connect(getUrl(), authInfo.getUser(), authInfo.getPassword()))
-			.orElse(InfluxDBFactory.connect(getUrl()))
-			.setDatabase(getDatabase())
+			.map(authInfo -> InfluxDBFactory.connect(url, authInfo.getUser(), authInfo.getPassword()))
+			.orElse(InfluxDBFactory.connect(url))
+			.setDatabase(database)
 			.enableBatch(BatchOptions.DEFAULTS);
-		LOG.info("Opened connection to InfluxDB URI: {}, DB: {}", getUrl(), getDatabase());
+		LOG.info("Opened connection to InfluxDB URI: {}, DB: {}", url, database);
 	}
 
-	private String getUrl() {
-		return uri.getScheme() + "://" + uri.getAuthority() + "/";
+	@Override
+	public void open() {
+
 	}
 
-	private String getDatabase() {
-		return StringUtils.stripStart(uri.getPath(), "/");
-	}
-
-	/**
-	 * Writes the output to the internal {@link PrintWriter} using
-	 * {@link PrintWriter#println(String)} and {@link PrintWriter#flush()}.
-	 */
 	@Override
 	public void writeln(final String output) {
 		if (influxDb == null) {
@@ -82,9 +67,6 @@ public class InfluxDbTcpLogger implements SimpleLogger {
 		}
 	}
 
-	/**
-	 * Closes the internal {@link PrintWriter}.
-	 */
 	@Override
 	public void close() {
 		if (influxDb != null) {

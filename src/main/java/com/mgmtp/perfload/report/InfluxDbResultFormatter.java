@@ -16,19 +16,21 @@
 package com.mgmtp.perfload.report;
 
 import java.net.InetAddress;
+import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.commons.collections.keyvalue.DefaultMapEntry;
+import org.apache.commons.lang3.time.StopWatch;
 import org.influxdb.dto.Point;
 
-import com.mgmtp.perfload.agent.StopWatch;
+import static java.util.stream.Collectors.toMap;
 
-public class InfluxDbResultLogger implements ResultLogger {
+public class InfluxDbResultFormatter implements ResultFormatter {
 
 	public static final String KO = "ko";
 	public static final String OK = "ok";
@@ -46,7 +48,7 @@ public class InfluxDbResultLogger implements ResultLogger {
 	 * @param layer some identifier for the layer in which the result is logged (e. g. client, server, ...)
 	 * @param pid
 	 */
-	public InfluxDbResultLogger(SimpleLogger logger, InetAddress localAddress, String layer, String operation, int pid, String target, String measurement) {
+	public InfluxDbResultFormatter(SimpleLogger logger, InetAddress localAddress, String layer, String operation, int pid, String target, String measurement) {
 		this.logger = logger;
 		this.localAddress = localAddress;
 		this.layer = layer;
@@ -60,7 +62,7 @@ public class InfluxDbResultLogger implements ResultLogger {
 	 * {@inheritDoc} See class comment above for details.
 	 */
 	@Override
-	public void logResult(String message, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+	public void formatResult(String message, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
 		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
 
 		Point.Builder builder = Point.measurement(measurement)
@@ -75,33 +77,34 @@ public class InfluxDbResultLogger implements ResultLogger {
 			.tag("layer", layer)
 			.tag("executionId", String.valueOf(executionId))
 			.tag("requestId", String.valueOf(requestId))
-			.addField("ti1", ti1.duration().getNano())
-			.addField("ti2", ti2.duration().getNano());
+			.tag(extraArgsToMap(extraArgs))
+			.addField("ti1", ti1.getNanoTime())
+			.addField("ti2", ti2.getNanoTime());
 		if (message == null) {
 			builder.tag("status", OK);
 		} else {
 			builder.tag("message", message).tag("status", KO);
 		}
-		logger.writeln(addExtraArgs(builder, extraArgs).build().lineProtocol());
+		logger.writeln(builder.build().lineProtocol());
 	}
 
-	private Point.Builder addExtraArgs(Point.Builder builder, Object[] extraArgs) {
+	private Map<String, String> extraArgsToMap(Object[] extraArgs) {
 		AtomicInteger i = new AtomicInteger(0);
-		builder.tag(Stream.of(extraArgs).flatMap(o -> {
-			Stream<Map.Entry<String, String>> setStream;
-			if (o instanceof Map) {
-				try {
-					//noinspection unchecked
-					setStream = ((Map<String, String>) o).entrySet().stream();
-				} catch (Exception e) {
-					setStream = Stream.empty();
-				}
-			} else {
-				//noinspection unchecked
-				setStream = Stream.of((Map.Entry<String, String>) new DefaultMapEntry(String.format("arg%d", i.getAndIncrement()), o.toString()));
-			}
-			return setStream;
-		}).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-		return builder;
+		return Stream.of(extraArgs)
+			.filter(Objects::nonNull)
+			.flatMap(extraArgsItem -> Optional.of(extraArgsItem)
+				.filter(extraArg -> extraArg instanceof Map)
+				.map(this::getStreamOfMapEntries)
+				.orElse(Stream.of(new AbstractMap.SimpleEntry<>(String.format("arg%d", i.getAndIncrement()), extraArgsItem.toString()))))
+			.collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+	}
+
+	private Stream<Map.Entry<String, String>> getStreamOfMapEntries(Object m) {
+		try {
+			//noinspection unchecked
+			return ((Map<String, String>) m).entrySet().stream();
+		} catch (Exception e) {
+			return Stream.empty();
+		}
 	}
 }

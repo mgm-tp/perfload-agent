@@ -17,18 +17,19 @@ package com.mgmtp.perfload.agent.hook;
 
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.Optional;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.LoadingCache;
-import com.mgmtp.perfload.agent.StopWatch;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.report.ResultLogger;
+import com.mgmtp.perfload.report.ResultFormatter;
 
 /**
  * Hook for timing methods.
@@ -41,11 +42,11 @@ public class MeasuringHook extends AbstractHook {
 	private final Provider<Deque<Measurement>> measurementsStack;
 	private static final Logger LOG = LoggerFactory.getLogger(MeasuringHook.class);
 	private final Provider<ExecutionParams> executionParamsProvider;
-	private final LoadingCache<String, ResultLogger> resultLoggerCache;
+	private final LoadingCache<String, ResultFormatter> resultLoggerCache;
 
 	@Inject
 	MeasuringHook(Provider<Deque<Measurement>> measurementsStack, Provider<ExecutionParams> executionParamsProvider,
-		LoadingCache<String, ResultLogger> resultLoggerCache) {
+		LoadingCache<String, ResultFormatter> resultLoggerCache) {
 		this.measurementsStack = measurementsStack;
 		this.executionParamsProvider = executionParamsProvider;
 		this.resultLoggerCache = resultLoggerCache;
@@ -58,8 +59,7 @@ public class MeasuringHook extends AbstractHook {
 	@Override
 	public void start(final Object source, final String fullyQualifiedMethodName, final Object[] args) {
 		StopWatch ti = new StopWatch();
-		Measurement measurement = new Measurement(fullyQualifiedMethodName, args, ti);
-		measurementsStack.get().push(measurement);
+		measurementsStack.get().push(new Measurement(fullyQualifiedMethodName, args, ti));
 		ti.start();
 	}
 
@@ -69,19 +69,20 @@ public class MeasuringHook extends AbstractHook {
 	 */
 	@Override
 	public void stop(final Object source, final Throwable throwable, final String fullyQualifiedMethodName, final Object[] args) {
-		Deque<Measurement> deque = measurementsStack.get();
-		Measurement measurement = deque.poll();
+		Measurement measurement = measurementsStack.get().poll();
 		if (measurement != null) {
 			measurement.ti.stop();
 			if (measurement.fullyQualifiedMethodName.equals(fullyQualifiedMethodName) && Arrays.equals(measurement.args, args)) {
-				String errorMsg = throwable != null ? throwable.getMessage() : null;
+				String errorMsg = Optional.ofNullable(throwable)
+					.map(Throwable::getMessage)
+					.orElse(null);
 				ExecutionParams executionParams = executionParamsProvider.get();
 				String operation = executionParams.getOperation();
 
-				ResultLogger resultLogger = resultLoggerCache.getUnchecked(operation != null ? operation : "unknown");
-				resultLogger.logResult(errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
-					fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
-					executionParams.getRequestId());
+				resultLoggerCache.getUnchecked(operation != null ? operation : "unknown")
+					.formatResult(errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
+						fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
+						executionParams.getRequestId());
 
 				return;
 			}
@@ -89,7 +90,7 @@ public class MeasuringHook extends AbstractHook {
 
 		// in case of an exception in the method we might end up here and lose the measurement
 		LOG.info("No measurement found. Clearing measurements stack...");
-		deque.clear();
+		measurementsStack.get().clear();
 	}
 
 	/**
@@ -111,7 +112,7 @@ public class MeasuringHook extends AbstractHook {
 
 		@Override
 		public String toString() {
-			return String.format("Measurement [%s, %s]", fullyQualifiedMethodName, ti.format());
+			return String.format("Measurement [%s, %s]", fullyQualifiedMethodName, ti.toString());
 		}
 	}
 

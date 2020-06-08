@@ -19,6 +19,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.AdviceAdapter;
 
+import static com.mgmtp.perfload.agent.Transformer.OPCODES;
+
 /**
  * An ASM {@link MethodVisitor} that weave the {@link HookManager} into a method's byte code.
  *
@@ -33,7 +35,7 @@ public class ServletApiHookMethodVisitor extends AdviceAdapter {
 	private static final String OWNER = HookManager.class.getName().replace('.', '/');
 
 	public ServletApiHookMethodVisitor(final int access, final String methodName, final String desc, final MethodVisitor mv) {
-		super(ASM4, mv, access, methodName, desc);
+		super(OPCODES, mv, access, methodName, desc);
 	}
 
 	@Override

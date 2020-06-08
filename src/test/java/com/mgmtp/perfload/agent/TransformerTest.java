@@ -48,8 +48,8 @@ import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ClassNameUtils;
 import com.mgmtp.perfload.report.SimpleLogger;
 
-import static com.mgmtp.perfload.report.InfluxDbResultLogger.KO;
-import static com.mgmtp.perfload.report.InfluxDbResultLogger.OK;
+import static com.mgmtp.perfload.report.InfluxDbResultFormatter.KO;
+import static com.mgmtp.perfload.report.InfluxDbResultFormatter.OK;
 import static java.util.regex.Pattern.DOTALL;
 import static java.util.regex.Pattern.MULTILINE;
 import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
@@ -71,7 +71,7 @@ public class TransformerTest {
 	@Inject
 	private Transformer transformer;
 
-	private TestSimpleLogger testLogger = new TestSimpleLogger();
+	private final TestSimpleLogger testLogger = new TestSimpleLogger();
 
 	private Class<?> testClass;
 	private Class<?> filterClass;
@@ -142,7 +142,7 @@ public class TransformerTest {
 
 	@Test
 	public void testServletApiHookWithFilter() throws Exception {
-		Object filter = filterClass.newInstance();
+		Object filter = filterClass.getConstructor().newInstance();
 		filterClass.getMethod("doFilter", ServletRequest.class, ServletResponse.class, FilterChain.class).invoke(filter, request,
 			null, null);
 
@@ -152,7 +152,8 @@ public class TransformerTest {
 
 	@Test
 	public void testServletApiHookWithServlet() throws Exception {
-		Object servlet = servletClass.newInstance();
+
+		Object servlet = servletClass.getConstructor().newInstance();
 		servletClass.getMethod("service", HttpServletRequest.class, HttpServletResponse.class).invoke(servlet, request,
 			mock(HttpServletResponse.class));
 
@@ -169,6 +170,7 @@ public class TransformerTest {
 	private Class<?> loadClass(final String fqcn) throws IOException, ClassNotFoundException {
 		String internalName = fqcn.replace('.', '/');
 
+		@SuppressWarnings("UnstableApiUsage")
 		byte[] classBytes = Resources.toByteArray(Resources.getResource(internalName + ".class"));
 		byte[] transformedClass = transformer.transform(null, internalName, null, null, classBytes);
 		File classFile = new File("tmp/" + internalName + ".class");

@@ -76,9 +76,8 @@ shadowJar {
 	relocate 'ch.qos.logback', 'ch.qos.logback'
 	relocate 'org.slf4j', 'org.slf4j'
 	relocate 'javax.servlet', 'javax.servlet'
-
+	dependsOn(build)
 }
-build.dependsOn(shadowJar)
 
 test {
 	useTestNG()

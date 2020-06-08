@@ -19,6 +19,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.AdviceAdapter;
 
+import static com.mgmtp.perfload.agent.Transformer.OPCODES;
 import static com.mgmtp.perfload.agent.util.ClassNameUtils.computeFullyQualifiedMethodName;
 
 /**
@@ -48,7 +49,7 @@ public class MeasuringHookMethodVisitor extends AdviceAdapter {
 
 	public MeasuringHookMethodVisitor(final int access, final String className, final String methodName, final String desc,
 		final MethodVisitor mv) {
-		super(ASM4, mv, access, methodName, desc);
+		super(OPCODES, mv, access, methodName, desc);
 		Type[] argumentTypes = Type.getArgumentTypes(methodDesc);
 		this.numArgs = argumentTypes.length;
 		this.fullyQualifiedMethodName = computeFullyQualifiedMethodName(className, methodName, argumentTypes);

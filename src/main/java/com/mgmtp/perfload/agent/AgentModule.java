@@ -53,9 +53,9 @@ import com.mgmtp.perfload.agent.hook.MeasuringHook;
 import com.mgmtp.perfload.agent.hook.MeasuringHook.Measurement;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.report.InfluxDbResultLogger;
+import com.mgmtp.perfload.report.InfluxDbResultFormatter;
 import com.mgmtp.perfload.report.InfluxDbTcpLogger;
-import com.mgmtp.perfload.report.ResultLogger;
+import com.mgmtp.perfload.report.ResultFormatter;
 import com.mgmtp.perfload.report.SimpleLogger;
 
 import net.sf.json.JSONArray;
@@ -76,9 +76,6 @@ public class AgentModule extends AbstractModule {
 
 	public static final String AGENT = "agent";
 	private final File agentDir;
-	private final int pid;
-	private final String measurement;
-	private final URI influxUri;
 	private final static Logger LOG = LoggerFactory.getLogger(AgentModule.class);
 
 	private static final JsonConfig JSON_CONFIG = new JsonConfig();
@@ -88,11 +85,15 @@ public class AgentModule extends AbstractModule {
 		JSON_CONFIG.setRootClass(String.class);
 	}
 
+	private final URI influxUri;
+	private final String measurement;
+	private final int pid;
+
 	public AgentModule(File agentDir, int pid) {
 		this.agentDir = agentDir;
+		influxUri = URI.create(System.getProperty("influxdb.uri", "http://localhost:8086/jmeter"));
+		measurement = System.getProperty("influxdb.measurement", "jmeter");
 		this.pid = pid;
-		this.influxUri = URI.create(System.getProperty("influxdb.uri", "http://localhost:8086/jmeter"));
-		this.measurement = System.getProperty("influxdb.measurement", "jmeter");
 	}
 
 	@Override
@@ -109,8 +110,36 @@ public class AgentModule extends AbstractModule {
 	}
 
 	@Provides
+	@Singleton
+	private LoadingCache<String, ResultFormatter> provideLoggerCache(ResultLoggerFactory resultLoggerFactory) {
+		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultFormatter>() {
+			@Override
+			public ResultFormatter load(@Nonnull String operation) {
+				return resultLoggerFactory.createLogger(operation);
+			}
+		});
+	}
+
+	@Provides
+	protected ResultLoggerFactory provideResultLoggerFactory(SimpleLogger measuringLogger) {
+		return (operation) ->
+		{
+			measuringLogger.open();
+			return new InfluxDbResultFormatter(measuringLogger, getInetAddress(), AGENT, operation, pid, AGENT, measurement);
+		};
+	}
+
+	@Provides
+	@Singleton
+	protected SimpleLogger createSimpleLogger() {
+		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
+		Runtime.getRuntime().addShutdownHook(new Thread(logger::close));
+		return logger;
+	}
+
+	@Provides
 	@ThreadScoped
-	Deque<Measurement> provideMeasurementsStack() {
+	Deque<Measurement> provideThreadsMeasurementsStack() {
 		return newArrayDeque();
 	}
 
@@ -123,27 +152,6 @@ public class AgentModule extends AbstractModule {
 			throw new IllegalStateException("Cannot read agent config file: " + configFile.getAbsolutePath());
 		}
 		return configFile;
-	}
-
-	@Provides
-	@Singleton
-	SimpleLogger provideMeasuringLogger() {
-		final InfluxDbTcpLogger logger = new InfluxDbTcpLogger(influxUri);
-		Runtime.getRuntime().addShutdownHook(new Thread(logger::close));
-		return logger;
-	}
-
-	@Provides
-	@Singleton
-	LoadingCache<String, ResultLogger> provideResultLoggerCache(final SimpleLogger measureLogger) {
-		final InetAddress localhost = getInetAddress();
-		measureLogger.open();
-		return CacheBuilder.newBuilder().build(new CacheLoader<String, ResultLogger>() {
-			@Override
-			public ResultLogger load(@Nonnull String operation) {
-				return new InfluxDbResultLogger(measureLogger, localhost, AGENT, operation, pid, AGENT, measurement);
-			}
-		});
 	}
 
 	@Provides
@@ -184,15 +192,15 @@ public class AgentModule extends AbstractModule {
 	Method provideGetHeaderMethod() {
 		try {
 			// need to use the context classloader since the system classloader does not know servlet api classes
-			ClassLoader loader = Thread.currentThread().getContextClassLoader();
-			return Class.forName("javax.servlet.http.HttpServletRequest", true, loader).getMethod("getHeader", String.class);
+			return Class.forName("javax.servlet.http.HttpServletRequest", true, Thread.currentThread().getContextClassLoader())
+				.getMethod("getHeader", String.class);
 		} catch (ClassNotFoundException | SecurityException | NoSuchMethodException ex) {
 			LOG.error("provideGetHeaderMethod: ", ex);
 			return null;
 		}
 	}
 
-	private InetAddress getInetAddress() {
+	private static InetAddress getInetAddress() {
 		InetAddress tmpLocalhost;
 		try {
 			tmpLocalhost = InetAddress.getLocalHost();
