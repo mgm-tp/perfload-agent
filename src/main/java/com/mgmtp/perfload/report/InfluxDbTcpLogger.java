@@ -41,15 +41,11 @@ public class InfluxDbTcpLogger implements ResultLogger {
 
 	private final InfluxDB influxDb;
 	private final static Logger LOG = LoggerFactory.getLogger(InfluxDbTcpLogger.class);
-	private final LoadingCache<String, ResultFormatter> formatterCache;
+	private final ThreadLocal<LoadingCache<String, ResultFormatter>> formatterCache = new ThreadLocal<>();
+	private final ResultFormatterFactory formatterFactory;
 
 	public InfluxDbTcpLogger(ResultFormatterFactory formatterFactory, @InfluxDbUri URI uri) {
-		this.formatterCache = CacheBuilder.newBuilder().build(new CacheLoader<String, ResultFormatter>() {
-			@Override
-			public ResultFormatter load(@Nonnull String operation) {
-				return formatterFactory.createFormatter(operation);
-			}
-		});
+		this.formatterFactory = formatterFactory;
 		String url = uri.getScheme() + "://" + uri.getAuthority() + "/";
 		String database = StringUtils.stripStart(uri.getPath(), "/");
 		LOG.info("Connecting to InfluxDB URI: {}, DB: {}", url, database);
@@ -74,9 +70,22 @@ public class InfluxDbTcpLogger implements ResultLogger {
 		if (influxDb == null) {
 			LOG.error("Connection to InfluxDB is not open.");
 		} else {
-			influxDb.write(formatterCache.getUnchecked(operation == null ? "unknown" : operation).formatResult(errorMessage, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs));
+			influxDb.write(getOrCreateFormatterCache().getUnchecked(operation == null ? "unknown" : operation)
+				.formatResult(errorMessage, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs));
 		}
 
+	}
+
+	private LoadingCache<String, ResultFormatter> getOrCreateFormatterCache() {
+		if (formatterCache.get() == null) {
+			this.formatterCache.set(CacheBuilder.newBuilder().build(new CacheLoader<String, ResultFormatter>() {
+				@Override
+				public ResultFormatter load(@Nonnull String operation) {
+					return formatterFactory.createFormatter(operation);
+				}
+			}));
+		}
+		return formatterCache.get();
 	}
 
 	private static class AuthInfo {

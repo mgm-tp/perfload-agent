@@ -57,9 +57,7 @@ public class MeasuringHook extends AbstractHook {
 	 */
 	@Override
 	public void start(final Object source, final String fullyQualifiedMethodName, final Object[] args) {
-		StopWatch ti = new StopWatch();
-		measurementsStack.get().push(new Measurement(fullyQualifiedMethodName, args, ti));
-		ti.start();
+		measurementsStack.get().push(new Measurement(fullyQualifiedMethodName, args, StopWatch.createStarted()));
 	}
 
 	/**
@@ -69,6 +67,7 @@ public class MeasuringHook extends AbstractHook {
 	@Override
 	public void stop(final Object source, final Throwable throwable, final String fullyQualifiedMethodName, final Object[] args) {
 		Measurement measurement = measurementsStack.get().poll();
+		LOG.debug("Stopping measurement: {}({})\n{}", fullyQualifiedMethodName, args, measurement);
 		if (measurement != null) {
 			measurement.ti.stop();
 			if (measurement.fullyQualifiedMethodName.equals(fullyQualifiedMethodName) && Arrays.equals(measurement.args, args)) {
@@ -76,6 +75,7 @@ public class MeasuringHook extends AbstractHook {
 					.map(Throwable::getMessage)
 					.orElse(null);
 				ExecutionParams executionParams = executionParamsProvider.get();
+				LOG.debug("Logging measurement: {}({})\n{}", fullyQualifiedMethodName, args, measurement);
 				logger.log(executionParams.getOperation(), errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
 					fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
 					executionParams.getRequestId());
