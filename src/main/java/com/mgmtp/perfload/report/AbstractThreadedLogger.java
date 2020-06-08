@@ -4,8 +4,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -15,13 +15,14 @@ public abstract class AbstractThreadedLogger implements ResultLogger {
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractThreadedLogger.class);
 	public static final int N_THREADS = 50;
 	private final ExecutorService threadPool = Executors.newFixedThreadPool(N_THREADS);
-	private final AtomicInteger threadCount = new AtomicInteger(0);
+	private final Semaphore sem = new Semaphore(N_THREADS);
 
 	protected AbstractThreadedLogger() {
 	}
 
-	public void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri, String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) {
-		LOG.debug("Threads incremented: {}", threadCount.incrementAndGet());
+	public void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri, String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) throws InterruptedException {
+		sem.acquire();
+		LOG.debug("Lock acquired: {}", sem.availablePermits());
 		threadPool.submit(() -> {
 			try {
 				if (threadPool.isShutdown()) {
@@ -29,7 +30,8 @@ public abstract class AbstractThreadedLogger implements ResultLogger {
 				}
 				processLog(new ResultObject(operation, errorMessage, timestamp, ti1, ti2, type, uri, uriAlias, executionId, requestId, extraArgs));
 			} finally {
-				LOG.debug("Threads decremented: {}", threadCount.decrementAndGet());
+				sem.release();
+				LOG.debug("Lock released: {}", sem.availablePermits());
 			}
 			return null;
 		});
@@ -42,8 +44,8 @@ public abstract class AbstractThreadedLogger implements ResultLogger {
 		LOG.debug("Flushing");
 		ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
 		ex.scheduleAtFixedRate(() -> {
-			LOG.debug("Waiting for {} threads", threadCount.get());
-			if (threadCount.get() <= 0) {
+			LOG.debug("Waiting for {} threads", N_THREADS - sem.availablePermits());
+			if (sem.availablePermits() >= N_THREADS) {
 				ex.shutdown();
 			}
 		}, 100, 30, TimeUnit.MILLISECONDS);
