@@ -40,7 +40,7 @@ public abstract class AbstractThreadedLogger implements ResultLogger {
 
 	protected abstract void processLog(ResultObject r);
 
-	public void flush() throws InterruptedException {
+	public void waitToProcess(int time, TimeUnit unit) throws InterruptedException {
 		LOG.debug("Flushing");
 		ScheduledExecutorService ex = Executors.newSingleThreadScheduledExecutor();
 		ex.scheduleAtFixedRate(() -> {
@@ -49,7 +49,8 @@ public abstract class AbstractThreadedLogger implements ResultLogger {
 				ex.shutdown();
 			}
 		}, 100, 30, TimeUnit.MILLISECONDS);
-		ex.awaitTermination(30, TimeUnit.SECONDS);
+		ex.awaitTermination(time, unit);
+
 		LOG.debug("Flushed");
 	}
 

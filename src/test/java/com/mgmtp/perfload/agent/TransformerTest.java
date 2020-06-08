@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import javax.inject.Inject;
@@ -234,7 +235,7 @@ public class TransformerTest {
 		}
 
 		public List<String> getResults() throws InterruptedException {
-			flush();
+			waitToProcess(30, TimeUnit.SECONDS);
 			return results;
 		}
 
