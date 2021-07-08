@@ -1,9 +1,0 @@
-{
-	'entryPoints': {
-		'servlets': [],
-		'filters': []
-	},
-	'instrumentations': {
-
-	}
-}

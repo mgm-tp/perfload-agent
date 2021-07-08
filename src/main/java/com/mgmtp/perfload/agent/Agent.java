@@ -18,68 +18,50 @@ package com.mgmtp.perfload.agent;
 import java.io.File;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
-import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.inject.Inject;
 
 import org.apache.commons.io.FileUtils;
-
-import com.google.inject.Injector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Java agent main class. Called by the JVM.
- * 
+ *
  * @author rnaegele
  */
 public class Agent {
 
-	private final AgentLogger logger;
+	private static final Logger LOG = LoggerFactory.getLogger(Agent.class);
 	private final Transformer transformer;
 
 	@Inject
-	Agent(final AgentLogger logger, final Transformer transformer) {
-		this.logger = logger;
+	Agent(Transformer transformer) {
 		this.transformer = transformer;
 	}
 
 	void addTransformer(final Instrumentation instrumentation) {
-		logger.writeln("Adding transformer...");
+		LOG.info("Adding transformer...");
 		instrumentation.addTransformer(transformer);
 	}
 
 	/**
-	 * @param agentArgs
-	 *            arguments for the agent; not used
-	 * @param instrumentation
-	 *            the {@link Instrumentation} instance
+	 * @param agentArgs arguments for the agent; not used
+	 * @param instrumentation the {@link Instrumentation} instance
 	 */
 	public static void premain(final String agentArgs, final Instrumentation instrumentation) {
-		AgentLogger logger = null;
+
 		try {
-			File agentDir = getAgentDir();
-			int pid = retrievePid();
-			File agentLog = new File(agentDir, String.format("perfload-agent-%d.log", pid));
-			logger = new AgentLogger(agentLog);
-
-			logger.writeln("Initializing perfLoad Agent...");
-
-			Injector injector = InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, logger, pid));
-			injector.getInstance(Agent.class).addTransformer(instrumentation);
+			LOG.info("Initializing perfLoad Agent...");
+			File agentDir = FileUtils.toFile(Agent.class.getProtectionDomain().getCodeSource().getLocation()).getParentFile();
+			InjectorHolder.INSTANCE.createInjector(new AgentModule(agentDir, retrievePid()))
+				.getInstance(Agent.class)
+				.addTransformer(instrumentation);
 		} catch (Exception ex) {
-			ex.printStackTrace();
-			if (logger != null) {
-				logger.writeln("Error initializing perfLoad Agent.", ex);
-				logger.close();
-			}
+			LOG.info("Error initializing perfLoad Agent.", ex);
 		}
-	}
-
-	private static File getAgentDir() {
-		URL location = Agent.class.getProtectionDomain().getCodeSource().getLocation();
-		File jarFile = FileUtils.toFile(location);
-		return jarFile.getParentFile();
 	}
 
 	static int retrievePid() {
@@ -90,8 +72,7 @@ public class Agent {
 			Matcher matcher = Pattern.compile("\\d*").matcher(jvmName);
 			return matcher.find() ? Integer.parseInt(matcher.group()) : -1;
 		} catch (Exception ex) {
-			System.err.println("Error retrieving process id.");
-			ex.printStackTrace();
+			LOG.warn("Error retrieving process id.", ex);
 			return -1;
 		}
 	}

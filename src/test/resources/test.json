@@ -1,0 +1,11 @@
+{
+"entryPoints":{"servlets":["com.mgmtp.perfload.agent.TestServlet"],
+"filters":["com.mgmtp.perfload.agent.TestFilter"]},
+"instrumentations":{
+	"om.mgmtp.a12.services.user.document.DefaultUserDocumentFactory":{"create":{"methodName":"create", "argumentLists":[]}},
+	"com.mgmtp.a12.services.document.operation.AddDocumentOperation":{"execute":{"methodName":"execute", "argumentLists":[]}},
+	"com.mgmtp.a12.services.document.SensitiveUserDataCensor":{"censorDocument":{"methodName":"censorDocument", "argumentLists":[]}},
+"com.mgmtp.a12.services.user.password.PasswordSecurityService":{"validateUserPassword":{"methodName":"validateUserPassword", "argumentLists":[]}},
+	"com.mgmtp.a12.services.document.operation.validate.ValidateDocumentOperation":{"execute":{"methodName":"execute", argumentLists=[]}},
+com.mgmtp.a12.services.batch.processor.Operation={execute=MethodInstrumentations{methodName='execute', argumentLists=[]}}}
+}

@@ -15,20 +15,19 @@
  */
 package com.mgmtp.perfload.agent.annotations;
 
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import javax.inject.Qualifier;
 
 /**
- * Annotation that can be used to annotate a constructor parameters in order to allow {@code null}
- * values to be injected. By default, Guice does not allow injection of {@code null} values.
- * 
  * @author rnaegele
  */
-@Retention(RUNTIME)
-@Target({ PARAMETER })
-public @interface Nullable {
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER })
+@Qualifier
+public @interface InfluxDbUri {
 	//
 }

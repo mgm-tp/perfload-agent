@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 mgm technology partners GmbH
+ * Copyright (c) 2014 mgm technology partners GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.mgmtp.perfload.agent.annotations;
+package com.mgmtp.perfload.report;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import java.util.UUID;
 
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import org.apache.commons.lang3.time.StopWatch;
 
 /**
- * Annotation that can be used to annotate a constructor parameters in order to allow {@code null}
- * values to be injected. By default, Guice does not allow injection of {@code null} values.
- * 
+ * Interface for perfLoad's logger for measurings.
+ *
  * @author rnaegele
  */
-@Retention(RUNTIME)
-@Target({ PARAMETER })
-public @interface Nullable {
-	//
+public interface ResultLogger {
+
+	/**
+	 * Writes the output to logger.
+	 */
+	void log(String operation, String errorMessage, long timestamp, StopWatch ti1, StopWatch ti2, String type, String uri,
+		String uriAlias, UUID executionId, UUID requestId, Object... extraArgs) throws Exception;
+
 }

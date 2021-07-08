@@ -15,13 +15,13 @@
  */
 package com.mgmtp.perfload.agent.annotations;
 
-import static com.google.common.collect.Maps.newHashMap;
-
 import java.util.Map;
 
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Scope;
+
+import static com.google.common.collect.Maps.newHashMap;
 
 /**
  * <p>
@@ -36,15 +36,15 @@ import com.google.inject.Scope;
  * {@code bindScope(...)} as shown in the following code sample:
  * </p>
  * <p>
- * 
+ *
  * <pre>
  * ThreadScope threadScope = new ThreadScope();
  * bindScope(ThreadScoped.class, threadScope);
  * bind(ThreadScope.class).toInstance(threadScope);
  * </pre>
- * 
+ *
  * </p>
- * 
+ *
  * @author rnaegele
  */
 public final class ThreadScope implements Scope {
@@ -53,7 +53,7 @@ public final class ThreadScope implements Scope {
 
 	@Override
 	public <T> Provider<T> scope(final Key<T> key, final Provider<T> unscoped) {
-		return new ThreadScopeProvider<T>(key, unscoped);
+		return new ThreadScopeProvider<>(key, unscoped);
 	}
 
 	/**
@@ -95,7 +95,7 @@ public final class ThreadScope implements Scope {
 
 			@SuppressWarnings("unchecked")
 			// cast ok, because we know what we'd put in before
-			T result = (T) value;
+				T result = (T) value;
 			return result;
 		}
 

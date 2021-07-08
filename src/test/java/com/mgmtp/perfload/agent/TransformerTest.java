@@ -15,23 +15,21 @@
  */
 package com.mgmtp.perfload.agent;
 
-import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
 import java.io.File;
 import java.io.IOException;
-import java.lang.instrument.IllegalClassFormatException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.net.MalformedURLException;
+import java.net.InetAddress;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import javax.inject.Inject;
 import javax.servlet.FilterChain;
@@ -40,27 +38,41 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.mgmtp.perfload.agent.util.ClassNameUtils;
+import org.influxdb.InfluxDB;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.AbstractModule;
 import com.google.inject.Injector;
 import com.google.inject.util.Modules;
 import com.mgmtp.perfload.agent.annotations.ConfigFile;
 import com.mgmtp.perfload.agent.hook.ServletApiHook;
+import com.mgmtp.perfload.agent.util.ClassNameUtils;
+import com.mgmtp.perfload.report.InfluxDbResultFormatter;
+import com.mgmtp.perfload.report.InfluxDbTcpLogger;
+import com.mgmtp.perfload.report.ResultLogger;
+
+import static com.mgmtp.perfload.report.InfluxDbResultFormatter.KO;
+import static com.mgmtp.perfload.report.InfluxDbResultFormatter.OK;
+import static java.util.regex.Pattern.DOTALL;
+import static java.util.regex.Pattern.MULTILINE;
+import static org.apache.commons.io.FileUtils.writeByteArrayToFile;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  * @author rnaegele
  */
+@Test
 public class TransformerTest {
 
-	private static final File MEASURING_LOG_FILE = new File("target", String.format("perfload-agent-measuring-%d.log",
-			Agent.retrievePid()));
+	public static final String OK_LINE_PATTERN = ".*^jmeter,executionId=%s,layer=agent,localAddress=.*,operation=%s,pid=%d,requestId=%s,status=" + OK + ",target=agent,type=AGENT,uri=%s,uriAlias=%s ti1=\\d+i,ti2=\\d+i \\d+$.*";
+	public static final String KO_LINE_PATTERN = ".*^jmeter,executionId=%s,layer=agent,localAddress=.*,message=%s,operation=%s,pid=%d,requestId=%s,status=" + KO + ",target=agent,type=AGENT,uri=%s,uriAlias=%s ti1=\\d+i,ti2=\\d+i \\d+$.*";
 
 	@Inject
 	private Transformer transformer;
@@ -72,20 +84,29 @@ public class TransformerTest {
 	private HttpServletRequest request;
 	private UUID execId;
 	private UUID reqId;
+	private int pid;
+
+	private final InetAddress localHost = InetAddress.getLocalHost();
+
+	private final TestResultLogger testLogger = new TestResultLogger((operation) ->
+		new InfluxDbResultFormatter(localHost, "agent", operation, pid, "agent", "jmeter"), null);
+
+	public TransformerTest() throws UnknownHostException {
+		super();
+	}
 
 	@BeforeClass
-	public void init() throws MalformedURLException, IOException, IllegalClassFormatException, ClassNotFoundException {
-		final File agentDir = new File("target");
-		int pid = Agent.retrievePid();
-		File agentLog = new File(agentDir, String.format("perfload-agent-%d.log", pid));
-		AgentLogger logger = new AgentLogger(agentLog);
+	public void init() throws IOException, ClassNotFoundException {
+		final File agentDir = new File("build");
+		pid = Agent.retrievePid();
 
-		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, logger, pid)).with(
+		Injector injector = InjectorHolder.INSTANCE.createInjector(Modules.override(new AgentModule(agentDir, pid))
+			.with(
 				new AbstractModule() {
 					@Override
 					protected void configure() {
-						bind(File.class).annotatedWith(ConfigFile.class).toInstance(
-								new File("src/test/resources/perfload-agent.json"));
+						bind(File.class).annotatedWith(ConfigFile.class).toInstance(new File("src/test/resources/perfload-agent.json"));
+						bind(ResultLogger.class).toInstance(testLogger);
 					}
 				}));
 		injector.injectMembers(this);
@@ -122,39 +143,46 @@ public class TransformerTest {
 		testClass.getMethod("checkLL", long.class, long.class).invoke(object, 42L, 43L);
 		testClass.getMethod("check").invoke(object);
 
-		List<String> measuringLogContents = Files.readLines(MEASURING_LOG_FILE, Charsets.UTF_8);
+		List<String> measuringLogContents = testLogger.getResults();
 		assertEquals(measuringLogContents.size(), 4);
-		assertTrue(measuringLogContents.get(0).contains("ERROR"));
-		assertTrue(measuringLogContents.get(1).contains("SUCCESS"));
-		assertTrue(measuringLogContents.get(2).contains("SUCCESS"));
-		assertTrue(measuringLogContents.get(3).contains("SUCCESS"));
+		String result = String.join("\n", measuringLogContents);
+		assertMatches(result, KO_LINE_PATTERN, null, "foo", "unknown", pid, null, "c.m.p.a.Test.check\\(\\)", "c.m.p.a.Test.check\\(\\)");
+		assertMatches(result, OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.checkI\\(int\\)", "c.m.p.a.Test.checkI\\(int\\)");
+		assertMatches(result, OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)", "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)");
+		assertMatches(result, OK_LINE_PATTERN, null, "unknown", pid, null, "c.m.p.a.Test.check\\(\\)", "c.m.p.a.Test.check\\(\\)");
 	}
 
 	@Test
 	public void testServletApiHookWithFilter() throws Exception {
-		Object filter = filterClass.newInstance();
+		Object filter = filterClass.getConstructor().newInstance();
 		filterClass.getMethod("doFilter", ServletRequest.class, ServletResponse.class, FilterChain.class).invoke(filter, request,
-				null, null);
+			null, null);
 
-		String fileContents = Files.toString(MEASURING_LOG_FILE, Charsets.UTF_8);
-		assertTrue(fileContents.matches(String.format("(?s).*%s[^\r\n]*?%s[^\r\n]*?%s.*", "operation", execId, reqId)));
+		String fileContents = String.join("\n", testLogger.getResults());
+		assertMatches(fileContents, OK_LINE_PATTERN, execId, "operation", pid, reqId, "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)", "c.m.p.a.Test.checkLL\\(long\\\\,\\\\ long\\)");
 	}
 
 	@Test
 	public void testServletApiHookWithServlet() throws Exception {
-		Object servlet = servletClass.newInstance();
-		servletClass.getMethod("service", HttpServletRequest.class, HttpServletResponse.class).invoke(servlet, request,
-				mock(HttpServletResponse.class));
 
-		String fileContents = Files.toString(MEASURING_LOG_FILE, Charsets.UTF_8);
-		assertTrue(fileContents.matches(String.format("(?s).*%s[^\r\n]*?%s[^\r\n]*?%s.*", "operation", execId, reqId)));
+		Object servlet = servletClass.getConstructor().newInstance();
+		servletClass.getMethod("service", HttpServletRequest.class, HttpServletResponse.class).invoke(servlet, request,
+			mock(HttpServletResponse.class));
+
+		String fileContents = String.join("\n", testLogger.getResults());
+		assertMatches(fileContents, OK_LINE_PATTERN, execId, "operation", pid, reqId, "c.m.p.a.TestServlet.service\\(j.s.h.HttpServletRequest\\\\,\\\\ j.s.h.HttpServletResponse\\)", "c.m.p.a.TestServlet.service\\(j.s.h.HttpServletRequest\\\\,\\\\ j.s.h.HttpServletResponse\\)");
 		assertTrue(fileContents.contains(ClassNameUtils.abbreviatePackageName(servletClass.getName())));
 	}
 
-	private Class<?> loadClass(final String fqcn) throws IOException, IllegalClassFormatException, MalformedURLException,
-			ClassNotFoundException {
+	private void assertMatches(String actual, String expectedPattern, Object... params) {
+		String pattern = String.format(expectedPattern, params);
+		assertTrue(Pattern.compile(pattern, DOTALL + MULTILINE).matcher(actual).matches(), String.format("\nPATTERN: %s\nCONTENT: %s\n", pattern, actual));
+	}
+
+	private Class<?> loadClass(final String fqcn) throws IOException, ClassNotFoundException {
 		String internalName = fqcn.replace('.', '/');
 
+		@SuppressWarnings("UnstableApiUsage")
 		byte[] classBytes = Resources.toByteArray(Resources.getResource(internalName + ".class"));
 		byte[] transformedClass = transformer.transform(null, internalName, null, null, classBytes);
 		File classFile = new File("tmp/" + internalName + ".class");
@@ -192,5 +220,31 @@ public class TransformerTest {
 			}
 		};
 		return loader.loadClass(fqcn);
+	}
+
+	private static class TestResultLogger extends InfluxDbTcpLogger {
+		private final List<String> results = Collections.synchronizedList(new ArrayList<>());
+
+		public TestResultLogger(ResultFormatterFactory formatterFactory, URI uri) {
+			super(formatterFactory, uri);
+		}
+
+		@Override
+		protected InfluxDB connect(URI uri) {
+			return null;
+		}
+
+		public List<String> getResults() throws InterruptedException {
+			waitToProcess(30, TimeUnit.SECONDS);
+			return results;
+		}
+
+		@Override
+		protected void processLog(ResultObject r) {
+			results.add(getOrCreateFormatterCache().getUnchecked(r.getOperation() == null ? "unknown" : r.getOperation())
+				.formatResult(r.getErrorMessage(), r.getTimestamp(), r.getTi1(), r.getTi2(), r.getType(),
+					r.getUri(), r.getUriAlias(), r.getExecutionId(), r.getRequestId(), r.getExtraArgs()));
+
+		}
 	}
 }

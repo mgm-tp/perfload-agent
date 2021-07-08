@@ -17,92 +17,94 @@ package com.mgmtp.perfload.agent.hook;
 
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.Optional;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
-import com.google.common.cache.LoadingCache;
-import com.mgmtp.perfload.agent.AgentLogger;
+import org.apache.commons.lang3.time.StopWatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.mgmtp.perfload.agent.util.ExecutionParams;
-import com.mgmtp.perfload.logging.ResultLogger;
-import com.mgmtp.perfload.logging.TimeInterval;
+import com.mgmtp.perfload.report.ResultLogger;
 
 /**
  * Hook for timing methods.
- * 
+ *
  * @author rnaegele
  */
 @Singleton
 public class MeasuringHook extends AbstractHook {
 
 	private final Provider<Deque<Measurement>> measurementsStack;
-	private final AgentLogger logger;
+	private static final Logger LOG = LoggerFactory.getLogger(MeasuringHook.class);
 	private final Provider<ExecutionParams> executionParamsProvider;
-	private final LoadingCache<String, ResultLogger> resultLoggerCache;
+	private final ResultLogger logger;
 
 	@Inject
-	MeasuringHook(final Provider<Deque<Measurement>> measurementsStack, final AgentLogger logger,
-			final Provider<ExecutionParams> executionParamsProvider, final LoadingCache<String, ResultLogger> resultLoggerCache) {
+	MeasuringHook(Provider<Deque<Measurement>> measurementsStack, Provider<ExecutionParams> executionParamsProvider,
+		ResultLogger logger) {
 		this.measurementsStack = measurementsStack;
-		this.logger = logger;
 		this.executionParamsProvider = executionParamsProvider;
-		this.resultLoggerCache = resultLoggerCache;
+		this.logger = logger;
 	}
 
 	/**
-	 * Starts timing the method pushing a {@link TimeInterval} on the internal thread-local
+	 * Starts timing the method pushing a {@link StopWatch} on the internal thread-local
 	 * measurement stack.
 	 */
 	@Override
 	public void start(final Object source, final String fullyQualifiedMethodName, final Object[] args) {
-		TimeInterval ti = new TimeInterval();
-		Measurement measurement = new Measurement(fullyQualifiedMethodName, args, ti);
-		measurementsStack.get().push(measurement);
-		ti.start();
+		measurementsStack.get().push(new Measurement(fullyQualifiedMethodName, args, StopWatch.createStarted()));
 	}
 
 	/**
-	 * Stop timing the method polling the {@link TimeInterval} from the internal thread-local
+	 * Stop timing the method polling the {@link StopWatch} from the internal thread-local
 	 * measurement stack.
 	 */
 	@Override
 	public void stop(final Object source, final Throwable throwable, final String fullyQualifiedMethodName, final Object[] args) {
-		Deque<Measurement> deque = measurementsStack.get();
-		Measurement measurement = deque.poll();
+		Measurement measurement = measurementsStack.get().poll();
+		LOG.debug("Stopping measurement: {}({})\n{}", fullyQualifiedMethodName, args, measurement);
 		if (measurement != null) {
 			measurement.ti.stop();
 			if (measurement.fullyQualifiedMethodName.equals(fullyQualifiedMethodName) && Arrays.equals(measurement.args, args)) {
-				String errorMsg = throwable != null ? throwable.getMessage() : null;
+				String errorMsg = Optional.ofNullable(throwable)
+					.map(Throwable::getMessage)
+					.orElse(null);
 				ExecutionParams executionParams = executionParamsProvider.get();
-				String operation = executionParams.getOperation();
-
-				ResultLogger resultLogger = resultLoggerCache.getUnchecked(operation != null ? operation : "unknown");
-				resultLogger.logResult(errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
+				LOG.debug("Logging measurement: {}({})\n{}", fullyQualifiedMethodName, args, measurement);
+				try {
+					logger.log(executionParams.getOperation(), errorMsg, System.currentTimeMillis(), measurement.ti, measurement.ti, "AGENT",
 						fullyQualifiedMethodName, fullyQualifiedMethodName, executionParams.getExecutionId(),
 						executionParams.getRequestId());
+				} catch (Exception e) {
+					LOG.error(e.getMessage(), e);
+				}
 
 				return;
 			}
 		}
 
 		// in case of an exception in the method we might end up here and lose the measurement
-		logger.writeln("No measurement found. Clearing measurements stack...");
-		deque.clear();
+		LOG.info("No measurement found. Clearing measurements stack...");
+		measurementsStack.get().clear();
 	}
 
 	/**
-	 * Pojo for measurments.
-	 * 
+	 * Pojo for measurements.
+	 *
 	 * @author rnaegele
 	 */
 	public static class Measurement {
 
 		final String fullyQualifiedMethodName;
-		final TimeInterval ti;
+		final StopWatch ti;
 		private final Object[] args;
 
-		Measurement(final String fullyQualifiedMethodName, final Object[] args, final TimeInterval ti) {
+		Measurement(final String fullyQualifiedMethodName, final Object[] args, final StopWatch ti) {
 			this.fullyQualifiedMethodName = fullyQualifiedMethodName;
 			this.args = args;
 			this.ti = ti;
@@ -110,7 +112,7 @@ public class MeasuringHook extends AbstractHook {
 
 		@Override
 		public String toString() {
-			return String.format("Measurement [%s, %s]", fullyQualifiedMethodName, ti.format());
+			return String.format("Measurement [%s, %s]", fullyQualifiedMethodName, ti.toString());
 		}
 	}
 

@@ -17,6 +17,10 @@ package com.mgmtp.perfload.agent.config;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.apache.commons.collections.CollectionUtils;
 
 /**
  * @author rnaegele
@@ -45,5 +49,16 @@ public class MethodInstrumentations implements Iterable<List<String>> {
 	@Override
 	public Iterator<List<String>> iterator() {
 		return argumentLists.iterator();
+	}
+
+	@Override
+	public String toString() {
+		return Optional.ofNullable(argumentLists)
+			.filter(CollectionUtils::isNotEmpty)
+			.map(a ->
+				a.stream()
+					.map(args -> String.format("%s(%s)", methodName, args))
+					.collect(Collectors.joining("; "))
+			).orElse(String.format("%s(*)", methodName));
 	}
 }

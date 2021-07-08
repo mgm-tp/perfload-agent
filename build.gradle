@@ -1,0 +1,84 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'com.github.johnrengelman.plugin-shadow'
+apply plugin: 'idea'
+
+buildscript {
+	repositories {
+		jcenter()
+	}
+	dependencies {
+		classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.4'
+	}
+}
+
+group = 'com.mgmtp.perfload.agent'
+version = '1.4.2-SNAPSHOT'
+
+description = """mgm perfLoad Agent"""
+
+sourceCompatibility = 8
+targetCompatibility = 8
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+}
+
+configurations.all {
+}
+
+idea {
+	module {
+		// if you hate browsing Javadoc
+		downloadJavadoc = false
+
+		// and love reading sources :)
+		downloadSources = true
+	}
+}
+
+repositories {
+	mavenCentral()
+	jcenter()
+}
+dependencies {
+	compile 'commons-io:commons-io:2.6'
+	compile 'org.apache.commons:commons-lang3:3.9'
+	compile 'org.apache.commons:commons-text:1.8'
+	compile 'javax.inject:javax.inject:1'
+	compile 'org.ow2.asm:asm:7.0'
+	compile 'org.ow2.asm:asm-commons:7.0'
+	compile 'com.google.inject:guice:4.2.3'
+	compile 'com.google.guava:guava:28.2-jre'
+	compile 'net.sf.json-lib:json-lib:2.4:jdk15'
+	compile 'org.influxdb:influxdb-java:2.17'
+	compile 'org.slf4j:slf4j-api:1.7.30'
+	compile 'ch.qos.logback:logback-classic:1.2.3'
+	testCompile('org.testng:testng:7.1.0') {
+	//	exclude(module: 'junit')
+	}
+	testCompile 'org.mockito:mockito-all:1.10.19'
+	testCompile 'javax.servlet:javax.servlet-api:4.0.0'
+}
+
+jar {
+	manifest {
+		attributes 'Premain-Class': 'com.mgmtp.perfload.agent.Agent'
+	}
+}
+
+shadowJar {
+	exclude 'logback.xml'
+	relocate 'org.objectweb', "${project.group}.shaded.org.objectweb"
+	relocate 'org.aopalliance', "${project.group}.shaded.org.aopalliance"
+	relocate 'org.apache', "${project.group}.shaded.org.apache"
+	relocate 'com.google', "${project.group}.shaded.com.google"
+	relocate 'net.sf', "${project.group}.shaded.net.sf"
+	relocate 'ch.qos.logback', 'ch.qos.logback'
+	relocate 'org.slf4j', 'org.slf4j'
+	relocate 'javax.servlet', 'javax.servlet'
+	dependsOn(build)
+}
+
+test {
+	useTestNG()
+}
